@@ -96,17 +96,9 @@
 *  --------------------------------------------------------------------*
 *   SECTION 4: SAP EVENTS
 *  --------------------------------------------------------------------*
-  INITIALIZATION.
-    s_objnam-sign = 'I'.
-    s_objnam-option = 'CP'.
-    s_objnam-low = 'Z*'.
-    APPEND s_objnam.
-    s_devcla-sign = 'I'.
-    s_devcla-option = 'CP'.
-    s_devcla-low = 'Z*'.
-    APPEND s_devcla.
-    CREATE OBJECT go_controller.
-    go_controller->initialize( ).
+INITIALIZATION.
+  CREATE OBJECT go_controller.
+  go_controller->initialize( ).
 
   START-OF-SELECTION.
     go_controller->run( ).
