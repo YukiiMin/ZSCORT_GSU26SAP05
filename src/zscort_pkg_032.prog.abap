@@ -76,8 +76,11 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
     METHODS:
       initialize,
       run,
-      on_link_click
-        FOR EVENT link_click OF cl_salv_events_tree
+      is_all_selected
+        RETURNING value(rv_all) type abap_bool,
+      assert_min_one_type,
+      on_double_click
+        FOR EVENT double_click OF cl_salv_events_tree
         IMPORTING node_key columnname,
       on_checkbox_change
         FOR EVENT checkbox_change OF cl_salv_events_tree
@@ -108,9 +111,6 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       display_tree,
       build_type_range
         RETURNING value(rt_type_range) TYPE zcl_scort_repository_032=>tt_type_range,
-      is_all_selected
-        RETURNING value(rv_all) TYPE abap_bool,
-      assert_min_one_type,
       show_detail_popup
         IMPORTING is_object TYPE zscort_s_object,
       do_change_owner_mass,
@@ -152,16 +152,13 @@ AT SELECTION-SCREEN OUTPUT.
   ENDIF.
 
 " --- AT SELECTION-SCREEN on uc_all: re-set all 7 checkboxes ---
+" --- AT SELECTION-SCREEN: validate at least one type selected ---
 AT SELECTION-SCREEN.
   IF sy-ucomm = 'UC_ALL' AND p_all = abap_true.
     p_prog = abap_true. p_clas = abap_true. p_tabl = abap_true.
     p_func = abap_true. p_dtel = abap_true. p_doma = abap_true.
     p_fugr = abap_true.
-  ENDIF.
-
-" --- AT SELECTION-SCREEN: validate at least one type selected ---
-AT SELECTION-SCREEN.
-  IF sy-ucomm <> 'UC_ALL'.
+  ELSEIF sy-ucomm <> 'UC_ALL'.
     go_ctrl->assert_min_one_type( ).
   ENDIF.
 
@@ -241,9 +238,10 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           EXPORTING
             it_devclass = s_devcla[]
             it_obj_type = lt_type_range
-          IMPORTING
-            et_objects  = mt_objects
-            rv_count    = mv_total_count
+        IMPORTING
+          et_objects  = mt_objects
+        RECEIVING
+          rv_count    = mv_total_count
         ).
       CATCH cx_root.
         CLEAR mt_objects.
@@ -258,7 +256,6 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           lo_node     TYPE REF TO cl_salv_node,
           lo_item     TYPE REF TO cl_salv_item,
           lt_empty    TYPE TABLE OF zscort_s_object,
-          lo_display  TYPE REF TO cl_salv_display_settings,
           lo_funcs    TYPE REF TO cl_salv_functions_tree,
           lo_cols     TYPE REF TO cl_salv_columns_tree,
           lo_col      TYPE REF TO cl_salv_column,
@@ -280,10 +277,9 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
     lv_header = |Package Explorer - { mv_total_count } objects - DEV-032 SCORT|.
 
-    lo_display = lo_tree->get_display_settings( ).
-    lo_display->set_list_header( lv_header ).
-    lo_display->set_list_header_size( cl_salv_display_settings=>c_header_size_large ).
-    lo_display->set_striped_pattern( abap_true ).
+    " CL_SALV_TREE uses get_tree_settings (not get_display_settings)
+    DATA(lo_tree_settings) = lo_tree->get_tree_settings( ).
+    lo_tree_settings->set_hierarchy_header( lv_header ).
 
     lo_funcs = lo_tree->get_functions( ).
     lo_funcs->set_all( abap_true ).
@@ -363,7 +359,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     lo_nodes->expand_all( ).
 
     " Register events
-    SET HANDLER me->on_link_click      FOR mo_tree->get_event( ).
+    SET HANDLER me->on_double_click    FOR mo_tree->get_event( ).
     SET HANDLER me->on_checkbox_change FOR mo_tree->get_event( ).
     SET HANDLER me->on_user_command    FOR mo_tree->get_event( ).
 
@@ -415,8 +411,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     mo_tree->display( ).
   ENDMETHOD.
 
-  METHOD on_link_click.
-    " columnname = 'OBJ_NAME' or 'OBJECT' signals a leaf click (double-click)
+  METHOD on_double_click.
     CHECK columnname = 'OBJ_NAME' OR columnname = 'OBJECT'.
 
     READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = node_key.
@@ -548,13 +543,17 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     lt_objects = collect_checked_objects( ).
 
     IF lt_objects IS INITIAL.
-      " Fallback: if user pressed button without selecting, try current selected row
+      " Fallback: if user pressed button without selecting, try current selected node
       DATA(lo_sel) = mo_tree->get_selections( ).
-      DATA(ls_cell) = lo_sel->get_current_cell( ).
-      IF ls_cell-row > 0.
-        READ TABLE mt_objects INTO DATA(ls_obj) INDEX ls_cell-row.
+      DATA(lv_node_key) = lo_sel->get_selected_node( ).
+      IF lv_node_key IS NOT INITIAL.
+        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
         IF sy-subrc = 0.
-          APPEND ls_obj TO lt_objects.
+          READ TABLE mt_objects INTO DATA(ls_obj)
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF sy-subrc = 0.
+            APPEND ls_obj TO lt_objects.
+          ENDIF.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -609,13 +608,9 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
       CHANGING  ct_objects  = lt_objects
     ).
 
-    " Reflect changes into mt_objects so tree shows updated author
-    LOOP AT lt_objects INTO DATA(ls_upd).
-      READ TABLE mt_objects ASSIGNING FIELD-SYMBOL(<ls_mt>) WITH KEY obj_name = ls_upd-obj_name object = ls_upd-object.
-      IF sy-subrc = 0.
-        <ls_mt>-author = ls_upd-author.
-      ENDIF.
-    ENDLOOP.
+    " ALV Tree caches data per-node, mt_objects changes don't refresh UI
+    " → ask user to click REFRESH (or LEAVE TO TRANSACTION for clean rebuild)
+    MESSAGE 'Owner changed. Please click REFRESH (or F8) to reload tree with updated author.' TYPE 'S'.
   ENDMETHOD.
 
   METHOD do_change_package_mass.
@@ -625,11 +620,15 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
     IF lt_objects IS INITIAL.
       DATA(lo_sel) = mo_tree->get_selections( ).
-      DATA(ls_cell) = lo_sel->get_current_cell( ).
-      IF ls_cell-row > 0.
-        READ TABLE mt_objects INTO DATA(ls_obj) INDEX ls_cell-row.
+      DATA(lv_node_key) = lo_sel->get_selected_node( ).
+      IF lv_node_key IS NOT INITIAL.
+        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
         IF sy-subrc = 0.
-          APPEND ls_obj TO lt_objects.
+          READ TABLE mt_objects INTO DATA(ls_obj)
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF sy-subrc = 0.
+            APPEND ls_obj TO lt_objects.
+          ENDIF.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -683,12 +682,9 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
       CHANGING  ct_objects     = lt_objects
     ).
 
-    LOOP AT lt_objects INTO DATA(ls_upd).
-      READ TABLE mt_objects ASSIGNING FIELD-SYMBOL(<ls_mt>) WITH KEY obj_name = ls_upd-obj_name object = ls_upd-object.
-      IF sy-subrc = 0.
-        <ls_mt>-devclass = ls_upd-devclass.
-      ENDIF.
-    ENDLOOP.
+    " ALV Tree caches data per-node, mt_objects changes don't refresh UI
+    " → ask user to click REFRESH (or LEAVE TO TRANSACTION for clean rebuild)
+    MESSAGE 'Package changed. Please click REFRESH (or F8) to reload tree with updated package.' TYPE 'S'.
   ENDMETHOD.
 
   METHOD show_detail_popup.
@@ -737,7 +733,8 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     CASE e_salv_function.
 
       WHEN 'REFRESH'.
-        SUBMIT zscort_pkg_032 VIA SELECTION-SCREEN AND RETURN.
+        " LEAVE TO TRANSACTION: clean restart without nested call stack
+        LEAVE TO TRANSACTION sy-tcode.
 
       WHEN 'CHG_OWNER'.
         do_change_owner_mass( ).
@@ -747,12 +744,20 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
       WHEN 'OPEN_SE80'.
         DATA(lo_sel) = mo_tree->get_selections( ).
-        DATA(ls_cell) = lo_sel->get_current_cell( ).
-        IF ls_cell-row = 0.
-          MESSAGE 'Please select a row first.' TYPE 'S' DISPLAY LIKE 'W'.
+        DATA(lv_node_key) = lo_sel->get_selected_node( ).
+        IF lv_node_key IS INITIAL.
+          MESSAGE 'Please select a node first.' TYPE 'S' DISPLAY LIKE 'W'.
           RETURN.
         ENDIF.
-        READ TABLE mt_objects INTO DATA(ls_obj) INDEX ls_cell-row.
+
+        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
+        IF sy-subrc <> 0.
+          MESSAGE 'Node not found in map.' TYPE 'S' DISPLAY LIKE 'W'.
+          RETURN.
+        ENDIF.
+
+        READ TABLE mt_objects INTO DATA(ls_obj)
+          WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
         IF sy-subrc <> 0.
           RETURN.
         ENDIF.
