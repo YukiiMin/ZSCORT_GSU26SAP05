@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_SCORT_REPOSITORY_032</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Repository Object Data Provider</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>CHANGE_OBJECT_OWNER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Change object owner</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CHANGE_OBJECT_PACKAGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Change object into diffrernt package</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_CLAS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Class</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_DOMA</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Domain</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_DTEL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Data Element</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_FUGR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Function Group</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_PROG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Program</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_TABL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Table</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get list of repository objects</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS_BY_TR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Find Repository Objects via Transport Request (E070 + E071 j</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECT_DETAIL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get detailed info of one object</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_PACKAGE_TREE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get all Object in Package</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_STATISTICS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get object statistics by type</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
