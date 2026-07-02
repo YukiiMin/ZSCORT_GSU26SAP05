@@ -63,6 +63,11 @@
      <DESCRIPT>Find Repository Objects via Transport Request (E070 + E071 j</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS_BY_TYPES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get objects filtered by package range + object-type range</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
      <CMPNAME>GET_OBJECT_DETAIL</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Get detailed info of one object</DESCRIPT>

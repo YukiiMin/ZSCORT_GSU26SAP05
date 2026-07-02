@@ -61,6 +61,14 @@ public section.
       value(IV_DEVCLASS) type DEVCLASS
     exporting
       !ET_OBJECTS type ZSCORT_T_OBJECTS .
+  methods GET_OBJECTS_BY_TYPES
+    importing
+      !IT_DEVCLASS type TT_PKG_RANGE
+      !IT_OBJ_TYPE type TT_TYPE_RANGE
+    exporting
+      !ET_OBJECTS type ZSCORT_T_OBJECTS
+    returning
+      value(RV_COUNT) type I .
   methods CHANGE_OBJECT_PACKAGE
     importing
       value(IV_OBJ_NAME) type SOBJ_NAME
@@ -485,6 +493,50 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
         srcsystem = ls-srcsystem
         versno    = ls-versid
       ) ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD get_objects_by_types.
+*--------------------------------------------------------------------*
+* SCORT: Get objects by package range + object-type range
+*        Used by Package Explorer with user-selected types
+*        If it_obj_type is empty → match all valid types (full TADIR scan)
+*--------------------------------------------------------------------*
+    CLEAR: et_objects, rv_count.
+
+    " Fallback: empty type range = match all valid types
+    DATA(lt_final_types) = COND #(
+      WHEN it_obj_type IS INITIAL THEN VALUE tt_type_range(
+        ( sign = 'I' option = 'EQ' low = gc_obj_prog )
+        ( sign = 'I' option = 'EQ' low = gc_obj_clas )
+        ( sign = 'I' option = 'EQ' low = gc_obj_tabl )
+        ( sign = 'I' option = 'EQ' low = gc_obj_doma )
+        ( sign = 'I' option = 'EQ' low = gc_obj_dtel )
+        ( sign = 'I' option = 'EQ' low = gc_obj_fugr )
+        ( sign = 'I' option = 'EQ' low = gc_obj_tran )
+      )
+      ELSE it_obj_type
+    ).
+
+    SELECT obj_name, object, devclass, author, srcsystem, versid
+      FROM tadir
+      INTO TABLE @DATA(lt_tadir)
+      WHERE devclass IN @it_devclass
+        AND object   IN @lt_final_types
+      ORDER BY object, obj_name.
+
+    IF sy-subrc = 0.
+      et_objects = VALUE #( FOR ls IN lt_tadir (
+        obj_name  = ls-obj_name
+        object    = ls-object
+        devclass  = ls-devclass
+        author    = ls-author
+        srcsystem = ls-srcsystem
+        versno    = ls-versid
+      ) ).
+      rv_count = lines( et_objects ).
     ENDIF.
 
   ENDMETHOD.
