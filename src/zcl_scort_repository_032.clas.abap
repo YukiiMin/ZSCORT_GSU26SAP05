@@ -67,7 +67,6 @@ public section.
       !IT_OBJ_TYPE type TT_TYPE_RANGE
     exporting
       !ET_OBJECTS type ZSCORT_T_OBJECTS
-    returning
       value(RV_COUNT) type I .
   methods CHANGE_OBJECT_PACKAGE
     importing

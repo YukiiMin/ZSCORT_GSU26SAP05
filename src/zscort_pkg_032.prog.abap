@@ -243,7 +243,6 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
             it_obj_type = lt_type_range
           IMPORTING
             et_objects  = mt_objects
-          RECEIVING
             rv_count    = mv_total_count
         ).
       CATCH cx_root.
@@ -464,14 +463,15 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     " ct_objects: list to update; updated with new AUTHOR
     DATA: lv_ok_count  TYPE i,
           lv_err_count TYPE i,
-          lv_err_log   TYPE string.
+          lv_err_log   TYPE string,
+          lv_obj       TYPE zscort_s_object.
 
     " If is_object supplied but ct_objects empty: treat as single-object mode
     IF ct_objects IS INITIAL AND is_object IS NOT INITIAL.
-      APPEND is_object TO ct_objects.
+      lv_obj = is_object.
+      APPEND lv_obj TO ct_objects.
     ENDIF.
 
-    DATA lv_obj TYPE zscort_s_object.
     LOOP AT ct_objects INTO lv_obj.
       TRY.
           DATA(lv_success) = mo_repo->change_object_owner(
@@ -506,13 +506,14 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   METHOD do_change_package.
     DATA: lv_ok_count  TYPE i,
           lv_err_count TYPE i,
-          lv_err_log   TYPE string.
+          lv_err_log   TYPE string,
+          lv_obj       TYPE zscort_s_object.
 
     IF ct_objects IS INITIAL AND is_object IS NOT INITIAL.
-      APPEND is_object TO ct_objects.
+      lv_obj = is_object.
+      APPEND lv_obj TO ct_objects.
     ENDIF.
 
-    DATA lv_obj TYPE zscort_s_object.
     LOOP AT ct_objects INTO lv_obj.
       TRY.
           DATA(lv_success) = mo_repo->change_object_package(
@@ -696,18 +697,17 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
              field_value TYPE string,
            END OF lty_row.
     DATA: lt_display TYPE TABLE OF lty_row,
-          ls_line    TYPE tline.
+          ls_row     TYPE lty_row,
+          lo_popup   TYPE REF TO cl_salv_table,
+          lo_cols    TYPE REF TO cl_salv_columns.
 
-    lt_display = VALUE #(
-      ( field_label = 'Object Name' field_value = is_object-obj_name )
-      ( field_label = 'Object Type' field_value = is_object-object )
-      ( field_label = 'Package'     field_value = is_object-devclass )
-      ( field_label = 'Author'      field_value = is_object-author )
-      ( field_label = 'Src System'  field_value = is_object-srcsystem )
-      ( field_label = 'Version'     field_value = is_object-versno )
-    ).
-
-    DATA: lo_popup TYPE REF TO cl_salv_table.
+    " Build display table
+    ls_row-field_label = 'Object Name'. ls_row-field_value = is_object-obj_name.  APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Object Type'. ls_row-field_value = is_object-object.    APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Package'.     ls_row-field_value = is_object-devclass.  APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Author'.      ls_row-field_value = is_object-author.    APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Src System'.  ls_row-field_value = is_object-srcsystem. APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Version'.     ls_row-field_value = is_object-versno.    APPEND ls_row TO lt_display.
 
     TRY.
         cl_salv_table=>factory(
@@ -715,23 +715,19 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           CHANGING  t_table      = lt_display
         ).
       CATCH cx_salv_msg.
-        ls_line-tdformat = '/'.
-        ls_line-tdline   = |{ is_object-obj_name } ({ is_object-object }) Pkg: { is_object-devclass }|.
-        APPEND ls_line TO DATA(lt_text).
-        CALL FUNCTION 'POPUP_TO_DISPLAY_TEXT'
-          EXPORTING titel    = 'SCORT - Object Detail'
-          TABLES    text_tab = lt_text.
+        " Skip popup if ALV factory fails - silent fall-through
         RETURN.
     ENDTRY.
 
     lo_popup->get_display_settings( )->set_list_header( |SCORT Detail: { is_object-obj_name }| ).
     lo_popup->get_functions( )->set_all( abap_false ).
-    DATA(lo_cols) = lo_popup->get_columns( ).
+    lo_cols = lo_popup->get_columns( ).
     lo_cols->set_optimize( abap_true ).
     TRY.
         lo_cols->get_column( 'FIELD_LABEL' )->set_medium_text( 'Field' ).
         lo_cols->get_column( 'FIELD_VALUE' )->set_medium_text( 'Value' ).
       CATCH cx_salv_not_found.
+        " column not found - ignore
     ENDTRY.
 
     lo_popup->display( ).
