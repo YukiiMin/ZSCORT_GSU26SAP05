@@ -787,19 +787,20 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
 ENDCLASS.
 
-*&---------------------------------------------------------------------*
-*& TEXT SYMBOLS
-*&---------------------------------------------------------------------*
-TEXT-b01 = 'Package Selection'.
-TEXT-b02 = 'Object Types'.
-TEXT-b03 = 'Custom Object Type'.
-TEXT-c01 = 'Select All'.
-TEXT-c02 = '[ ] Programs'.
-TEXT-c03 = '[ ] Classes'.
-TEXT-c04 = '[ ] Tables'.
-TEXT-c05 = '[ ] Function Modules'.
-TEXT-c06 = '[ ] Data Elements'.
-TEXT-c07 = '[ ] Domains'.
-TEXT-c08 = '[ ] Function Groups'.
-TEXT-c09 = 'Custom Type (e.g. INTF/MESG/...)'.
-TEXT-c10 = 'Tick Object Type checkboxes (use Select All to include all 7 types). Enter Custom to extend scope.'.
+"*&---------------------------------------------------------------------*
+"*& TEXT SYMBOLS
+"*&---------------------------------------------------------------------*
+" TEXT-b01 = 'Package Selection'.
+" TEXT-b02 = 'Object Types'.
+" TEXT-b03 = 'Custom Object Type'.
+" TEXT-b04 = 'Owner (Person Responsible)'.
+" TEXT-c01 = 'Select All'.
+" TEXT-c02 = '[ ] Programs'.
+" TEXT-c03 = '[ ] Classes'.
+" TEXT-c04 = '[ ] Tables'.
+" TEXT-c05 = '[ ] Function Modules'.
+" TEXT-c06 = '[ ] Data Elements'.
+" TEXT-c07 = '[ ] Domains'.
+" TEXT-c08 = '[ ] Function Groups'.
+" TEXT-c09 = 'Custom Type (e.g. INTF/MESG/...)'.
+" TEXT-c10 = 'Tick Object Type checkboxes (use Select All to include all 7 types). Enter Custom to extend scope.'.

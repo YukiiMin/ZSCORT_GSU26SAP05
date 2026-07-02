@@ -522,10 +522,12 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     ).
 
     " Empty author range = no filter (vs in SELECT-IN which would return 0 rows)
+    DATA: lt_tadir TYPE TABLE OF tadir.
+
     IF it_author IS NOT INITIAL.
       SELECT obj_name, object, devclass, author, srcsystem, versid
         FROM tadir
-        INTO TABLE @DATA(lt_tadir)
+        INTO CORRESPONDING FIELDS OF TABLE lt_tadir
         WHERE devclass IN @it_devclass
           AND object   IN @lt_final_types
           AND author   IN @it_author
@@ -533,7 +535,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     ELSE.
       SELECT obj_name, object, devclass, author, srcsystem, versid
         FROM tadir
-        INTO TABLE @DATA(lt_tadir)
+        INTO CORRESPONDING FIELDS OF TABLE lt_tadir
         WHERE devclass IN @it_devclass
           AND object   IN @lt_final_types
         ORDER BY object, obj_name.
