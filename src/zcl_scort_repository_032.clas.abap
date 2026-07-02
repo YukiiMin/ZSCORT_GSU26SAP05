@@ -65,6 +65,7 @@ public section.
     importing
       !IT_DEVCLASS type TT_PKG_RANGE
       !IT_OBJ_TYPE type TT_TYPE_RANGE
+      !IT_AUTHOR   type TT_AUTH_RANGE optional
     exporting
       !ET_OBJECTS type ZSCORT_T_OBJECTS
     returning
@@ -520,12 +521,23 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
       ELSE it_obj_type
     ).
 
-    SELECT obj_name, object, devclass, author, srcsystem, versid
-      FROM tadir
-      INTO TABLE @DATA(lt_tadir)
-      WHERE devclass IN @it_devclass
-        AND object   IN @lt_final_types
-      ORDER BY object, obj_name.
+    " Empty author range = no filter (vs in SELECT-IN which would return 0 rows)
+    IF it_author IS NOT INITIAL.
+      SELECT obj_name, object, devclass, author, srcsystem, versid
+        FROM tadir
+        INTO TABLE @DATA(lt_tadir)
+        WHERE devclass IN @it_devclass
+          AND object   IN @lt_final_types
+          AND author   IN @it_author
+        ORDER BY object, obj_name.
+    ELSE.
+      SELECT obj_name, object, devclass, author, srcsystem, versid
+        FROM tadir
+        INTO TABLE @DATA(lt_tadir)
+        WHERE devclass IN @it_devclass
+          AND object   IN @lt_final_types
+        ORDER BY object, obj_name.
+    ENDIF.
 
     IF sy-subrc = 0.
       et_objects = VALUE #( FOR ls IN lt_tadir (

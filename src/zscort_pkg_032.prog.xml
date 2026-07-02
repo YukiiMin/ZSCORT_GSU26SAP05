@@ -30,6 +30,12 @@
     </item>
     <item>
      <ID>I</ID>
+     <KEY>B04</KEY>
+     <ENTRY>Owner (Person Responsible)</ENTRY>
+     <LENGTH>27</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
      <KEY>C01</KEY>
      <ENTRY>Select All</ENTRY>
      <LENGTH>14</LENGTH>
@@ -98,6 +104,12 @@
      <KEY>S_DEVCLA</KEY>
      <ENTRY>Package</ENTRY>
      <LENGTH>15</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>S_AUTHOR</KEY>
+     <ENTRY>Owner</ENTRY>
+     <LENGTH>12</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

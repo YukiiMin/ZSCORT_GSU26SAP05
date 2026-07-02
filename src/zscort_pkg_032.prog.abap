@@ -5,9 +5,10 @@
 *& Date   : 2026-07-03
 *& Desc   : Browse package contents grouped by Object Type as a real TREE.
 *&          - 7 common object types as checkboxes + 1 Custom input + Select All
+*&          - Owner filter (Person Responsible) - SE03 parity
 *&          - CL_SALV_TREE: parent = Object Type, child = Object Names
 *&          - Toolbar: Change Owner (mass), Change Package (mass), Open in SE80, Refresh
-*&          - Double-click child: open object detail popup
+*&          - Double-click child: open object directly in SE80 (RS_TOOL_ACCESS)
 *&          - Checkbox on child: multi-select for mass actions
 *& Pattern: OO-ABAP MVC (Controller Pattern)
 *&   Model      : ZCL_SCORT_REPOSITORY_032 (Global Class)
@@ -27,6 +28,13 @@ DATA: gv_devcla TYPE tadir-devclass.
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
   SELECT-OPTIONS s_devcla FOR gv_devcla OBLIGATORY.
 SELECTION-SCREEN END OF BLOCK b1.
+
+" --- Block: Owner (Person Responsible) - NEW (SE03 parity) ---
+DATA: gv_author TYPE author.
+
+SELECTION-SCREEN BEGIN OF BLOCK b4 WITH FRAME TITLE TEXT-b04.
+  SELECT-OPTIONS s_author FOR gv_author.
+SELECTION-SCREEN END OF BLOCK b4.
 
 " --- Block 2: 7 common object types + Select All ---
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-b02.
@@ -77,7 +85,7 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       initialize,
       run,
       is_all_selected
-        RETURNING value(rv_all) type abap_bool,
+        RETURNING VALUE(rv_all) TYPE abap_bool,
       assert_min_one_type,
       on_double_click
         FOR EVENT double_click OF cl_salv_events_tree
@@ -110,21 +118,21 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       fetch_data,
       display_tree,
       build_type_range
-        RETURNING value(rt_type_range) TYPE zcl_scort_repository_032=>tt_type_range,
+        RETURNING VALUE(rt_type_range) TYPE zcl_scort_repository_032=>tt_type_range,
       show_detail_popup
         IMPORTING is_object TYPE zscort_s_object,
       do_change_owner_mass,
       do_change_package_mass,
       do_change_owner
-        IMPORTING iv_new_owner  TYPE author
-                  is_object     TYPE zscort_s_object OPTIONAL
-        CHANGING  ct_objects    TYPE zscort_t_objects,
+        IMPORTING iv_new_owner TYPE author
+                  is_object    TYPE zscort_s_object OPTIONAL
+        CHANGING  ct_objects   TYPE zscort_t_objects,
       do_change_package
         IMPORTING iv_new_package TYPE devclass
                   is_object      TYPE zscort_s_object OPTIONAL
         CHANGING  ct_objects     TYPE zscort_t_objects,
       collect_checked_objects
-        RETURNING value(rt_objects) TYPE zscort_t_objects.
+        RETURNING VALUE(rt_objects) TYPE zscort_t_objects.
 ENDCLASS.
 
 *&=====================================================================*
@@ -137,11 +145,13 @@ DATA: go_ctrl TYPE REF TO lcl_pkg_controller.
 *&=====================================================================*
 
 " --- INITIALIZATION: construct controller first ---
+
 INITIALIZATION.
   CREATE OBJECT go_ctrl.
   go_ctrl->initialize( ).
 
-" --- AT SELECTION-SCREEN OUTPUT: when user toggles Select All, auto-check all 7 ---
+  " --- AT SELECTION-SCREEN OUTPUT: when user toggles Select All, auto-check all 7 ---
+
 AT SELECTION-SCREEN OUTPUT.
   IF go_ctrl IS BOUND.
     IF go_ctrl->is_all_selected( ) = abap_true.
@@ -151,8 +161,9 @@ AT SELECTION-SCREEN OUTPUT.
     ENDIF.
   ENDIF.
 
-" --- AT SELECTION-SCREEN on uc_all: re-set all 7 checkboxes ---
-" --- AT SELECTION-SCREEN: validate at least one type selected ---
+  " --- AT SELECTION-SCREEN on uc_all: re-set all 7 checkboxes ---
+  " --- AT SELECTION-SCREEN: validate at least one type selected ---
+
 AT SELECTION-SCREEN.
   IF sy-ucomm = 'UC_ALL' AND p_all = abap_true.
     p_prog = abap_true. p_clas = abap_true. p_tabl = abap_true.
@@ -162,7 +173,8 @@ AT SELECTION-SCREEN.
     go_ctrl->assert_min_one_type( ).
   ENDIF.
 
-" --- START-OF-SELECTION: F8 pressed ---
+  " --- START-OF-SELECTION: F8 pressed ---
+
 START-OF-SELECTION.
   go_ctrl->run( ).
 
@@ -238,6 +250,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           EXPORTING
             it_devclass = s_devcla[]
             it_obj_type = lt_type_range
+            it_author   = s_author[]
         IMPORTING
           et_objects  = mt_objects
         RECEIVING
@@ -251,17 +264,17 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD display_tree.
-    DATA: lo_tree     TYPE REF TO cl_salv_tree,
-          lo_nodes    TYPE REF TO cl_salv_nodes,
-          lo_node     TYPE REF TO cl_salv_node,
-          lo_item     TYPE REF TO cl_salv_item,
-          lt_empty    TYPE TABLE OF zscort_s_object,
-          lo_funcs    TYPE REF TO cl_salv_functions_tree,
-          lo_cols     TYPE REF TO cl_salv_columns_tree,
-          lo_col      TYPE REF TO cl_salv_column,
-          lv_last     TYPE trobjtype,
-          ls_parent   LIKE LINE OF lt_empty,
-          lv_header   TYPE lvc_title.
+    DATA: lo_tree   TYPE REF TO cl_salv_tree,
+          lo_nodes  TYPE REF TO cl_salv_nodes,
+          lo_node   TYPE REF TO cl_salv_node,
+          lo_item   TYPE REF TO cl_salv_item,
+          lt_empty  TYPE TABLE OF zscort_s_object,
+          lo_funcs  TYPE REF TO cl_salv_functions_tree,
+          lo_cols   TYPE REF TO cl_salv_columns_tree,
+          lo_col    TYPE REF TO cl_salv_column,
+          lv_last   TYPE trobjtype,
+          ls_parent LIKE LINE OF lt_empty.
+"          lv_header TYPE string.
 
     TRY.
         cl_salv_tree=>factory(
@@ -275,11 +288,13 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
     mo_tree = lo_tree.
 
-    lv_header = |Package Explorer - { mv_total_count } objects - DEV-032 SCORT|.
+"    lv_header = |Package Explorer - { mv_total_count } objects - DEV-032 SCORT|.
 
     " CL_SALV_TREE uses get_tree_settings (not get_display_settings)
     DATA(lo_tree_settings) = lo_tree->get_tree_settings( ).
-    lo_tree_settings->set_hierarchy_header( lv_header ).
+    lo_tree_settings->set_hierarchy_header(
+      CONV #( |Package Explorer - { mv_total_count } objects - DEV-032 SCORT| )
+    ).
 
     lo_funcs = lo_tree->get_functions( ).
     lo_funcs->set_all( abap_true ).
@@ -318,45 +333,51 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     DATA: lv_parent_key TYPE lvc_nkey,
           ls_node_map   TYPE lty_node_map.
 
-    LOOP AT mt_objects INTO DATA(ls_obj).
-      IF ls_obj-object <> lv_last.
-        lv_last = ls_obj-object.
+    TRY.
+        LOOP AT mt_objects INTO DATA(ls_obj).
+          IF ls_obj-object <> lv_last.
+            lv_last = ls_obj-object.
 
-        DATA(lv_group_count) = REDUCE i( INIT sum = 0
-          FOR wa IN mt_objects WHERE ( object = ls_obj-object )
-          NEXT sum = sum + 1 ).
+            DATA(lv_group_count) = REDUCE i( INIT sum = 0
+              FOR wa IN mt_objects WHERE ( object = ls_obj-object )
+              NEXT sum = sum + 1 ).
 
-        CLEAR ls_parent.
-        ls_parent-object = ls_obj-object.
+            CLEAR ls_parent.
+            ls_parent-object = ls_obj-object.
 
-        lo_node = lo_nodes->add_node(
-          related_node = ''
-          relationship  = if_salv_c_node_relation=>parent
-          data_row      = ls_parent
-        ).
-        lo_node->set_text( |{ ls_obj-object } ({ lv_group_count })| ).
+            lo_node = lo_nodes->add_node(
+              related_node = ''
+              relationship  = if_salv_c_node_relation=>parent
+              data_row      = ls_parent
+            ).
+            lo_node->set_text( |{ ls_obj-object } ({ lv_group_count })| ).
 
-        lv_parent_key = lo_node->get_key( ).
-      ENDIF.
+            lv_parent_key = lo_node->get_key( ).
+          ENDIF.
 
-      DATA(lo_child) = lo_nodes->add_node(
-        related_node = lv_parent_key
-        relationship  = if_salv_c_node_relation=>last_child
-        data_row      = ls_obj
-      ).
+          DATA(lo_child) = lo_nodes->add_node(
+            related_node = lv_parent_key
+            relationship  = if_salv_c_node_relation=>last_child
+            data_row      = ls_obj
+          ).
 
-      " Child gets checkbox (editable)
-      lo_item = lo_child->get_hierarchy_item( ).
-      lo_item->set_type( if_salv_c_item_type=>checkbox ).
-      lo_item->set_editable( abap_true ).
+          " Child gets checkbox (editable)
+          lo_item = lo_child->get_hierarchy_item( ).
+          lo_item->set_type( if_salv_c_item_type=>checkbox ).
+          lo_item->set_editable( abap_true ).
 
-      ls_node_map-node_key = lo_child->get_key( ).
-      ls_node_map-obj_name = ls_obj-obj_name.
-      ls_node_map-obj_type = ls_obj-object.
-      APPEND ls_node_map TO mt_node_keys.
-    ENDLOOP.
+          ls_node_map-node_key = lo_child->get_key( ).
+          ls_node_map-obj_name = ls_obj-obj_name.
+          ls_node_map-obj_type = ls_obj-object.
+          APPEND ls_node_map TO mt_node_keys.
+        ENDLOOP.
 
-    lo_nodes->expand_all( ).
+        lo_nodes->expand_all( ).
+      CATCH cx_salv_not_found cx_salv_msg.
+        " Node build failure - log and fall through (no nodes = empty tree)
+        MESSAGE 'Tree node build failed - object list returned but tree could not render.' TYPE 'W'.
+        RETURN.
+    ENDTRY.
 
     " Register events
     SET HANDLER me->on_double_click    FOR mo_tree->get_event( ).
@@ -412,34 +433,58 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD on_double_click.
+    DATA: ls_node TYPE lty_node_map,
+          ls_obj  TYPE zscort_s_object.
+
+    " Only respond to clicks on OBJ_NAME or OBJECT columns (avoid spurious fires)
     CHECK columnname = 'OBJ_NAME' OR columnname = 'OBJECT'.
 
-    READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = node_key.
+    " Find which node was clicked via internal map (node_key is unique per row)
+    READ TABLE mt_node_keys INTO ls_node
+      WITH KEY node_key = CONV lvc_nkey( node_key ).
     IF sy-subrc <> 0.
-      MESSAGE 'Object not found in tree.' TYPE 'S' DISPLAY LIKE 'W'.
+      " Either parent (group header) or not in map - silent return
       RETURN.
     ENDIF.
 
-    READ TABLE mt_objects INTO DATA(ls_obj)
+    " Look up full object data
+    READ TABLE mt_objects INTO ls_obj
       WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    show_detail_popup( ls_obj ).
+    " Open in SE80/RS_TOOL_ACCESS - this is the user's expected double-click behavior
+    CALL FUNCTION 'RS_TOOL_ACCESS'
+      EXPORTING
+        operation    = 'SHOW'
+        object_name  = ls_obj-obj_name
+        object_type  = ls_obj-object
+        devclass     = ls_obj-devclass
+      EXCEPTIONS
+        not_executed = 1
+        OTHERS       = 2.
+    IF sy-subrc <> 0.
+      " Fallback to plain SE80
+      CALL TRANSACTION 'SE80'.
+    ENDIF.
   ENDMETHOD.
 
   METHOD on_checkbox_change.
+    DATA: lv_k    TYPE lvc_nkey,
+          ls_key  TYPE lty_node_map.
+
+    lv_k = CONV lvc_nkey( node_key ).
     IF checked = abap_true.
-      READ TABLE mt_node_keys INTO DATA(ls_key) WITH KEY node_key = node_key.
+      READ TABLE mt_node_keys INTO ls_key WITH KEY node_key = lv_k.
       IF sy-subrc = 0.
-        READ TABLE mt_checked TRANSPORTING NO FIELDS WITH KEY node_key = node_key.
+        READ TABLE mt_checked TRANSPORTING NO FIELDS WITH KEY node_key = lv_k.
         IF sy-subrc <> 0.
           APPEND ls_key TO mt_checked.
         ENDIF.
       ENDIF.
     ELSE.
-      DELETE mt_checked WHERE node_key = node_key.
+      DELETE mt_checked WHERE node_key = lv_k.
     ENDIF.
   ENDMETHOD.
 
@@ -543,23 +588,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     lt_objects = collect_checked_objects( ).
 
     IF lt_objects IS INITIAL.
-      " Fallback: if user pressed button without selecting, try current selected node
-      DATA(lo_sel) = mo_tree->get_selections( ).
-      DATA(lv_node_key) = lo_sel->get_selected_node( ).
-      IF lv_node_key IS NOT INITIAL.
-        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
-        IF sy-subrc = 0.
-          READ TABLE mt_objects INTO DATA(ls_obj)
-            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
-          IF sy-subrc = 0.
-            APPEND ls_obj TO lt_objects.
-          ENDIF.
-        ENDIF.
-      ENDIF.
-    ENDIF.
-
-    IF lt_objects IS INITIAL.
-      MESSAGE 'Please select (checkbox) at least one object first.' TYPE 'S' DISPLAY LIKE 'W'.
+      MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
       RETURN.
     ENDIF.
 
@@ -619,22 +648,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     lt_objects = collect_checked_objects( ).
 
     IF lt_objects IS INITIAL.
-      DATA(lo_sel) = mo_tree->get_selections( ).
-      DATA(lv_node_key) = lo_sel->get_selected_node( ).
-      IF lv_node_key IS NOT INITIAL.
-        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
-        IF sy-subrc = 0.
-          READ TABLE mt_objects INTO DATA(ls_obj)
-            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
-          IF sy-subrc = 0.
-            APPEND ls_obj TO lt_objects.
-          ENDIF.
-        ENDIF.
-      ENDIF.
-    ENDIF.
-
-    IF lt_objects IS INITIAL.
-      MESSAGE 'Please select (checkbox) at least one object first.' TYPE 'S' DISPLAY LIKE 'W'.
+      MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
       RETURN.
     ENDIF.
 
@@ -730,6 +744,8 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD on_user_command.
+    DATA: ls_obj TYPE zscort_s_object.
+
     CASE e_salv_function.
 
       WHEN 'REFRESH'.
@@ -743,24 +759,14 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         do_change_package_mass( ).
 
       WHEN 'OPEN_SE80'.
-        DATA(lo_sel) = mo_tree->get_selections( ).
-        DATA(lv_node_key) = lo_sel->get_selected_node( ).
-        IF lv_node_key IS INITIAL.
-          MESSAGE 'Please select a node first.' TYPE 'S' DISPLAY LIKE 'W'.
+        DATA(lt_checked_obj) = collect_checked_objects( ).
+        IF lt_checked_obj IS INITIAL.
+          MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
           RETURN.
         ENDIF.
 
-        READ TABLE mt_node_keys INTO DATA(ls_node) WITH KEY node_key = lv_node_key.
-        IF sy-subrc <> 0.
-          MESSAGE 'Node not found in map.' TYPE 'S' DISPLAY LIKE 'W'.
-          RETURN.
-        ENDIF.
+        READ TABLE lt_checked_obj INTO ls_obj INDEX 1.
 
-        READ TABLE mt_objects INTO DATA(ls_obj)
-          WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
-        IF sy-subrc <> 0.
-          RETURN.
-        ENDIF.
         CALL FUNCTION 'RS_TOOL_ACCESS'
           EXPORTING
             operation    = 'SHOW'
