@@ -95,13 +95,15 @@
 
 *  --------------------------------------------------------------------*
 *   SECTION 4: SAP EVENTS
+*   IMPORTANT: INITIALIZATION must NOT trigger DB queries.
+*   Only construct controller. fetch_data() runs only AFTER user presses F8.
 *  --------------------------------------------------------------------*
 INITIALIZATION.
   CREATE OBJECT go_controller.
   go_controller->initialize( ).
 
-  START-OF-SELECTION.
-    go_controller->run( ).
+START-OF-SELECTION.
+  go_controller->run( ).
 
 *  --------------------------------------------------------------------*
 *   SECTION 5: LOCAL CLASS IMPLEMENTATIONS (Controller)

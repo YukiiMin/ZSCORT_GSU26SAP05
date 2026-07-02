@@ -236,8 +236,10 @@ CLASS lcl_hub_controller IMPLEMENTATION.
 
   METHOD navigate_to.
 *------------------------------------------------------------------*
-* Navigate to sub-program using SUBMIT ... AND RETURN
-* This keeps Hub running in stack - F3 returns to Hub
+* Navigate to sub-program using SUBMIT ... VIA SELECTION-SCREEN
+* VIA SELECTION-SCREEN forces the sub-program to display its
+* selection screen first, so user MUST press F8 before ALV appears.
+* AND RETURN keeps Hub in the stack so F3 goes back to Hub.
 *------------------------------------------------------------------*
     DATA: lv_program TYPE progname.
 
@@ -253,7 +255,7 @@ CLASS lcl_hub_controller IMPLEMENTATION.
         RETURN.
     ENDCASE.
 
-    SUBMIT (lv_program) AND RETURN.
+    SUBMIT (lv_program) VIA SELECTION-SCREEN AND RETURN.
   ENDMETHOD.
 
 ENDCLASS.

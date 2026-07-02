@@ -262,7 +262,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
   METHOD show_detail_message.
     MESSAGE
-      |{ is_object-object } | { is_object-obj_name } | Pkg: { is_object-devclass } | Author: { is_object-author }|
+      |{ is_object-object } \| { is_object-obj_name } \| Pkg: { is_object-devclass } \| Author: { is_object-author }|
       TYPE 'I'.
   ENDMETHOD.
 
