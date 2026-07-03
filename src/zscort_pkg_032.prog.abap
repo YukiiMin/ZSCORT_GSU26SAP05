@@ -251,10 +251,8 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
             it_devclass = s_devcla[]
             it_obj_type = lt_type_range
             it_author   = s_author[]
-        IMPORTING
-          et_objects  = mt_objects
-        RECEIVING
-          rv_count    = mv_total_count
+          IMPORTING
+            et_objects  = mt_objects
         ).
       CATCH cx_root.
         CLEAR mt_objects.

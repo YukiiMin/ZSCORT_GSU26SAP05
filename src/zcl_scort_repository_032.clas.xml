@@ -53,6 +53,11 @@
      <DESCRIPT>Table</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
+     <CMPNAME>GC_OBJ_TRAN</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Transaction</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
      <CMPNAME>GET_OBJECTS</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Get list of repository objects</DESCRIPT>
