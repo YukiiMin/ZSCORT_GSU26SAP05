@@ -45,6 +45,7 @@ SELECTION-SCREEN COMMENT /1(79) TEXT-c01.
 *  --------------------------------------------------------------------*
 *   SECTION 2: LOCAL CLASS - EVENT HANDLER (Inherit to expose protected CONTEXT_MENU)
 *  --------------------------------------------------------------------*
+CLASS lcl_controller DEFINITION DEFERRED.
 CLASS lcl_salv_event_handler DEFINITION INHERITING FROM cl_salv_events_table.
   PUBLIC SECTION.
     METHODS:

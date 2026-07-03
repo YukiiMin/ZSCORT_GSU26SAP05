@@ -46,6 +46,36 @@
      <LANGU>E</LANGU>
      <DESCRIPT>Get all objects from TADIR with optional filters</DESCRIPT>
     </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_OBJ_RANGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for SOBJ_NAME filter</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_TYPE_RANGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for TROBJTYPE filter</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_PKG_RANGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for DEVCLASS filter</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_AUTH_RANGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for AUTHOR filter</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_TRKORR_RNG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for transport request number</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>TT_AS4USER_RNG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Range table for transport owner</DESCRIPT>
+    </SEOINTERFTX>
    </DESCRIPTIONS>
   </asx:values>
  </asx:abap>

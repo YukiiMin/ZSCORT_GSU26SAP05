@@ -30,7 +30,7 @@ public section.
 
   methods CONSTRUCTOR
     importing
-      !TEXTID like IF_T100_DYN_MSG=>T100KEY optional
+      !TEXTID like IF_T100_MESSAGE=>T100KEY optional
       !PREVIOUS like PREVIOUS optional
       !MV_ERROR_CODE type STRING optional
       !MV_OBJECT_NAME type SOBJ_NAME optional

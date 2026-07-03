@@ -1,68 +1,29 @@
 {
-  "format": {
-    "style": "spaces"
-  },
   "global": {
-    "skipGeneratedGatewayClasses": true,
-    "skipGeneratedTestClasses": true
+    "files": [
+      "/src/**/*.abap"
+    ]
   },
-  "selectors": [
-    {
-      "name": "SCORT",
-      "type": "abapGit",
-      "folder": "src",
-      "files": "/src/.*\\.(abap|asprog|asinc|incl)$"
-    }
-  ],
+  "syntax": {
+    "version": "v740sp05",
+    "errorNamespace": "^(Z|Y)",
+    "allowedNamespaces": [
+      "^[+_]",
+      "^(Z|Y)"
+    ]
+  },
   "rules": {
-    "no_prefixes": {
-      "enabled": false
-    },
-    "select_performs": {
-      "enabled": false
-    },
-    "maximum_line_length": {
-      "enabled": true,
-      "length": 160,
-      "exclude": ["\\.clas\\.abap$"]
-    },
-    "maximum_method_length": {
-      "enabled": true,
-      "length": 200,
-      "exclude": ["\\.clas\\.abap$"]
-    },
-    "cyclomatic_complexity": {
-      "enabled": true,
-      "max": 10
-    },
-    "nesting_depth": {
-      "enabled": true,
-      "depth": 4
-    },
-    "allowed_object_types": {
-      "enabled": false
-    },
-    "forbidden_object_types": {
-      "enabled": false
-    },
-    "method_length": {
-      "enabled": false
-    },
-    "parser_error": {
-      "enabled": true
-    },
-    "try_without_catch": {
-      "enabled": true
-    },
-    "unused_variables": {
-      "enabled": true,
-      "threshold": 2
-    },
-    "check_no_handler_pragma": {
-      "enabled": false
-    }
+    "parser_error": true,
+    "check_syntax": true,
+    "undefined_methods": true,
+    "implement_methods": true,
+    "superclass_final": true,
+    "interfaces_in_class_declaration": true,
+    "friends_in_class": true,
+    "local_class_naming": false,
+    "check_no_handler_pragma": false
   },
-  "dependencies": {
-    "unused-imports": "5.0.0"
-  }
+  "expect": {},
+  "depend": {},
+  "uses": []
 }

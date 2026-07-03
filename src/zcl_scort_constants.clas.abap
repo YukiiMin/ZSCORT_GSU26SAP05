@@ -25,7 +25,7 @@ endclass.
 
 CLASS ZCL_SCORT_CONSTANTS IMPLEMENTATION.
 
-  METHOD zif_scort_constants~get_object_label.
+  METHOD get_object_label.
     rv_label = SWITCH #(
       iv_object
       WHEN zif_scort_constants~gc_obj_prog THEN 'Programs / Reports'
@@ -39,7 +39,7 @@ CLASS ZCL_SCORT_CONSTANTS IMPLEMENTATION.
     ).
   ENDMETHOD.
 
-  METHOD zif_scort_constants~get_valid_types.
+  METHOD get_valid_types.
     rt_types = VALUE #(
       ( object = zif_scort_constants~gc_obj_prog label = 'Programs / Reports' )
       ( object = zif_scort_constants~gc_obj_clas label = 'ABAP Classes' )

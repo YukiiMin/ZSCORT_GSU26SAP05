@@ -162,7 +162,7 @@ CLASS ZCL_SCORT_REPO_MUTATOR_032 IMPLEMENTATION.
           mv_error_code     = 'INVALID_PACKAGE'
           mv_object_name    = ''
           mv_new_devclass   = iv_devclass
-          mv_error_text     = |Package { iv_new_devclass } does not exist in TDEVC.|.
+          mv_error_text     = |Package { iv_devclass } does not exist in TDEVC.|.
     ENDIF.
 
   ENDMETHOD.

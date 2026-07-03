@@ -2,7 +2,7 @@ class ZCL_SCORT_REPO_READER_032 definition
   public
   final
   create public
-  friends ZIF_SCORT_REPO_READER .
+  global friends ZIF_SCORT_REPO_READER .
 
 public section.
 
