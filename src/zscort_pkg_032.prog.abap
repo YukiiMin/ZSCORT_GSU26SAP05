@@ -85,7 +85,7 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       initialize,
       run,
       is_all_selected
-        RETURNING VALUE(rv_all) TYPE abap_bool,
+        RETURNING VALUE(RV_ALL) TYPE abap_bool,
       assert_min_one_type,
       on_double_click
         FOR EVENT double_click OF cl_salv_events_tree
@@ -118,7 +118,7 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       fetch_data,
       display_tree,
       build_type_range
-        RETURNING VALUE(rt_type_range) TYPE zcl_scort_repository_032=>tt_type_range,
+        RETURNING VALUE(RT_TYPE_RANGE) TYPE zcl_scort_repository_032=>tt_type_range,
       show_detail_popup
         IMPORTING is_object TYPE zscort_s_object,
       do_change_owner_mass,
@@ -132,7 +132,7 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
                   is_object      TYPE zscort_s_object OPTIONAL
         CHANGING  ct_objects     TYPE zscort_t_objects,
       collect_checked_objects
-        RETURNING VALUE(rt_objects) TYPE zscort_t_objects.
+        RETURNING VALUE(RT_OBJECTS) TYPE zscort_t_objects.
 ENDCLASS.
 
 *&=====================================================================*

@@ -74,14 +74,14 @@ public section.
       !IV_OBJ_TYPE type TROBJTYPE
       !IV_NEW_DEVCLASS type DEVCLASS
     returning
-      value(RV_SUCCESS) type ABAP_BOOL .
+      VALUE(RV_SUCCESS) type ABAP_BOOL .
   methods CHANGE_OBJECT_OWNER
     importing
       !IV_OBJ_NAME type SOBJ_NAME
       !IV_OBJ_TYPE type TROBJTYPE
       !IV_NEW_OWNER type AUTHOR
     returning
-      value(RV_SUCCESS) type ABAP_BOOL .
+      VALUE(RV_SUCCESS) type ABAP_BOOL .
   PROTECTED SECTION.
 
   PRIVATE SECTION.
@@ -100,13 +100,13 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     CLEAR et_objects.
 
     DATA(lt_valid_types) = VALUE RSELOPTION(
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_prog )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_clas )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tabl )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_doma )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_dtel )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_fugr )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tran )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_PROG )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_CLAS )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TABL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DOMA )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DTEL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_FUGR )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TRAN )
     ).
 
     SELECT obj_name, object, devclass, author, srcsystem, versid
@@ -155,19 +155,19 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     es_detail-versno       = ls_tadir-versid.
 
     es_detail-object_type_desc = SWITCH #( iv_obj_type
-      WHEN GC_OBJ_prog THEN 'Programs / Reports'
-      WHEN GC_OBJ_clas THEN 'ABAP Classes'
-      WHEN GC_OBJ_tabl THEN 'Database Tables'
-      WHEN GC_OBJ_doma THEN 'Domains'
-      WHEN GC_OBJ_dtel THEN 'Data Elements'
-      WHEN GC_OBJ_fugr THEN 'Function Groups'
-      WHEN GC_OBJ_tran THEN 'Transactions'
+      WHEN GC_OBJ_PROG THEN 'Programs / Reports'
+      WHEN GC_OBJ_CLAS THEN 'ABAP Classes'
+      WHEN GC_OBJ_TABL THEN 'Database Tables'
+      WHEN GC_OBJ_DOMA THEN 'Domains'
+      WHEN GC_OBJ_DTEL THEN 'Data Elements'
+      WHEN GC_OBJ_FUGR THEN 'Function Groups'
+      WHEN GC_OBJ_TRAN THEN 'Transactions'
       ELSE 'Other'
     ).
 
     CASE iv_obj_type.
 
-      WHEN GC_OBJ_prog.
+      WHEN GC_OBJ_PROG.
         SELECT SINGLE name FROM trdir
           INTO @DATA(lv_progname)
           WHERE name = @iv_obj_name.
@@ -175,7 +175,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
           es_detail-description = |Program: { iv_obj_name }|.
         ENDIF.
 
-      WHEN GC_OBJ_tabl.
+      WHEN GC_OBJ_TABL.
         SELECT SINGLE ddtext FROM dd02t
           INTO @DATA(lv_tabl_desc)
           WHERE tabname    = @iv_obj_name
@@ -183,28 +183,28 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
             AND as4local   = 'A'.
         IF sy-subrc = 0. es_detail-description = lv_tabl_desc. ENDIF.
 
-      WHEN GC_OBJ_clas.
+      WHEN GC_OBJ_CLAS.
         SELECT SINGLE descript FROM seoclasstx
           INTO @DATA(lv_clas_desc)
           WHERE clsname = @iv_obj_name
             AND langu   = @sy-langu.
         IF sy-subrc = 0. es_detail-description = lv_clas_desc. ENDIF.
 
-      WHEN GC_OBJ_tran.
+      WHEN GC_OBJ_TRAN.
         SELECT SINGLE ttext FROM tstct
           INTO @DATA(lv_tran_desc)
           WHERE tcode = @iv_obj_name
             AND sprsl = @sy-langu.
         IF sy-subrc = 0. es_detail-description = lv_tran_desc. ENDIF.
 
-      WHEN GC_OBJ_fugr.
+      WHEN GC_OBJ_FUGR.
         SELECT SINGLE areat FROM tlibt
           INTO @DATA(lv_fugr_desc)
           WHERE area = @iv_obj_name
             AND spras = @sy-langu.
         IF sy-subrc = 0. es_detail-description = lv_fugr_desc. ENDIF.
 
-      WHEN GC_OBJ_dtel.
+      WHEN GC_OBJ_DTEL.
         SELECT SINGLE ddtext FROM dd04t
           INTO @DATA(lv_dtel_desc)
           WHERE rollname   = @iv_obj_name
@@ -212,7 +212,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
             AND as4local   = 'A'.
         IF sy-subrc = 0. es_detail-description = lv_dtel_desc. ENDIF.
 
-      WHEN GC_OBJ_doma.
+      WHEN GC_OBJ_DOMA.
         SELECT SINGLE ddtext FROM dd01t
           INTO @DATA(lv_doma_desc)
           WHERE domname    = @iv_obj_name
@@ -233,13 +233,13 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     CLEAR et_statistics.
 
     DATA(lt_valid_types) = VALUE RSELOPTION(
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_prog )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_clas )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tabl )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_doma )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_dtel )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_fugr )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tran )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_PROG )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_CLAS )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TABL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DOMA )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DTEL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_FUGR )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TRAN )
     ).
 
     " Aggregate query — INTO CORRESPONDING không hỗ trợ GROUP BY
@@ -249,7 +249,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
       FROM tadir
       INTO TABLE @DATA(lt_stat)
       WHERE object   IN @lt_valid_types
-        AND devclass IN @lt_pkg_range
+        AND devclass IN @it_devclass
         AND author   IN @it_author
       GROUP BY object
       ORDER BY object.
@@ -264,13 +264,13 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
       LOOP AT et_statistics ASSIGNING FIELD-SYMBOL(<ls_stat>).
         <ls_stat>-object_desc = SWITCH #( <ls_stat>-object
-          WHEN GC_OBJ_prog THEN 'Programs / Reports'
-          WHEN GC_OBJ_clas THEN 'ABAP Classes'
-          WHEN GC_OBJ_tabl THEN 'Database Tables'
-          WHEN GC_OBJ_doma THEN 'Domains'
-          WHEN GC_OBJ_dtel THEN 'Data Elements'
-          WHEN GC_OBJ_fugr THEN 'Function Groups'
-          WHEN GC_OBJ_tran THEN 'Transactions'
+          WHEN GC_OBJ_PROG THEN 'Programs / Reports'
+          WHEN GC_OBJ_CLAS THEN 'ABAP Classes'
+          WHEN GC_OBJ_TABL THEN 'Database Tables'
+          WHEN GC_OBJ_DOMA THEN 'Domains'
+          WHEN GC_OBJ_DTEL THEN 'Data Elements'
+          WHEN GC_OBJ_FUGR THEN 'Function Groups'
+          WHEN GC_OBJ_TRAN THEN 'Transactions'
           ELSE 'Other'
         ).
       ENDLOOP.
@@ -384,13 +384,13 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     CLEAR et_tr_objects.
 
     DATA(lt_valid_types) = VALUE RSELOPTION(
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_prog )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_clas )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tabl )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_doma )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_dtel )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_fugr )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tran )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_PROG )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_CLAS )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TABL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DOMA )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DTEL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_FUGR )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TRAN )
     ).
 
     DATA(lt_final_types) = COND #(
@@ -468,13 +468,13 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     CLEAR et_objects.
 
     DATA(lt_valid_types) = VALUE RSELOPTION(
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_prog )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_clas )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tabl )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_doma )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_dtel )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_fugr )
-      ( sign = 'I' option = 'EQ' low = GC_OBJ_tran )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_PROG )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_CLAS )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TABL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DOMA )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_DTEL )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_FUGR )
+      ( sign = 'I' option = 'EQ' low = GC_OBJ_TRAN )
     ).
 
     SELECT obj_name, object, devclass, author, srcsystem, versid
@@ -509,22 +509,33 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     " Fallback: empty type range = match all valid types
     DATA(lt_final_types) = COND #(
       WHEN it_obj_type IS INITIAL THEN VALUE tt_type_range(
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_prog )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_clas )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_tabl )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_doma )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_dtel )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_fugr )
-        ( sign = 'I' option = 'EQ' low = GC_OBJ_tran )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_PROG )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_CLAS )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_TABL )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_DOMA )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_DTEL )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_FUGR )
+        ( sign = 'I' option = 'EQ' low = GC_OBJ_TRAN )
       )
       ELSE it_obj_type
     ).
+
+    " Explicit struct + DATA to avoid duplicate inline @DATA() across IF/ELSE branches
+    TYPES: BEGIN OF ty_tadir,
+             obj_name  TYPE tadir-obj_name,
+             object    TYPE tadir-object,
+             devclass  TYPE tadir-devclass,
+             author    TYPE tadir-author,
+             srcsystem TYPE tadir-srcsystem,
+             versid    TYPE tadir-versid,
+           END OF ty_tadir.
+    DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
 
     " Empty author range = no filter (vs SELECT-IN which would return 0 rows)
     IF it_author IS NOT INITIAL.
       SELECT obj_name, object, devclass, author, srcsystem, versid
         FROM tadir
-        INTO TABLE @DATA(lt_tadir)
+        INTO TABLE @lt_tadir
         WHERE devclass IN @it_devclass
           AND object   IN @lt_final_types
           AND author   IN @it_author
@@ -532,7 +543,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     ELSE.
       SELECT obj_name, object, devclass, author, srcsystem, versid
         FROM tadir
-        INTO TABLE @DATA(lt_tadir)
+        INTO TABLE @lt_tadir
         WHERE devclass IN @it_devclass
           AND object   IN @lt_final_types
         ORDER BY object, obj_name.
