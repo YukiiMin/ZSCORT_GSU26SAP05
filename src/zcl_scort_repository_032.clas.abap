@@ -68,6 +68,13 @@ public section.
       !IT_AUTHOR   type TT_AUTH_RANGE optional
     exporting
       !ET_OBJECTS type ZSCORT_T_OBJECTS .
+  methods GET_OBJECTS_ALL_TYPES
+    importing
+      !IT_DEVCLASS type TT_PKG_RANGE optional
+      !IT_AUTHOR   type TT_AUTH_RANGE optional
+      !IT_OBJ_NAME type TT_OBJ_RANGE optional
+    exporting
+      !ET_OBJECTS type ZSCORT_T_OBJECTS .
   methods CHANGE_OBJECT_PACKAGE
     importing
       !IV_OBJ_NAME type SOBJ_NAME
@@ -565,6 +572,105 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
           INTO TABLE @lt_tadir
           WHERE object   IN @lt_final_types
           ORDER BY object, obj_name.
+      ENDIF.
+    ENDIF.
+
+    IF sy-subrc = 0.
+      et_objects = VALUE #( FOR ls IN lt_tadir (
+        obj_name  = ls-obj_name
+        object    = ls-object
+        devclass  = ls-devclass
+        author    = ls-author
+        srcsystem = ls-srcsystem
+        versno    = ls-versid
+      ) ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD get_objects_all_types.
+*--------------------------------------------------------------------*
+* SCORT: Get all objects from TADIR — no object type restriction
+*        Supports optional filters: package, owner, object name
+*        Used by Repository Explorer when no type filter is needed
+*--------------------------------------------------------------------*
+    CLEAR et_objects.
+
+    TYPES: BEGIN OF ty_tadir,
+             obj_name  TYPE tadir-obj_name,
+             object    TYPE tadir-object,
+             devclass  TYPE tadir-devclass,
+             author    TYPE tadir-author,
+             srcsystem TYPE tadir-srcsystem,
+             versid    TYPE tadir-versid,
+           END OF ty_tadir.
+    DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
+
+    " 4-branch matrix: (devclass empty?) x (author empty?) x (obj_name empty?)
+    IF it_devclass IS NOT INITIAL.
+      IF it_author IS NOT INITIAL.
+        IF it_obj_name IS NOT INITIAL.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE devclass IN @it_devclass
+              AND author   IN @it_author
+              AND obj_name IN @it_obj_name
+            ORDER BY author, devclass, object, obj_name.
+        ELSE.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE devclass IN @it_devclass
+              AND author   IN @it_author
+            ORDER BY author, devclass, object, obj_name.
+        ENDIF.
+      ELSE.
+        IF it_obj_name IS NOT INITIAL.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE devclass IN @it_devclass
+              AND obj_name IN @it_obj_name
+            ORDER BY author, devclass, object, obj_name.
+        ELSE.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE devclass IN @it_devclass
+            ORDER BY author, devclass, object, obj_name.
+        ENDIF.
+      ENDIF.
+    ELSE.
+      IF it_author IS NOT INITIAL.
+        IF it_obj_name IS NOT INITIAL.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE author   IN @it_author
+              AND obj_name IN @it_obj_name
+            ORDER BY author, devclass, object, obj_name.
+        ELSE.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE author   IN @it_author
+            ORDER BY author, devclass, object, obj_name.
+        ENDIF.
+      ELSE.
+        IF it_obj_name IS NOT INITIAL.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            WHERE obj_name IN @it_obj_name
+            ORDER BY author, devclass, object, obj_name.
+        ELSE.
+          SELECT obj_name, object, devclass, author, srcsystem, versid
+            FROM tadir
+            INTO TABLE @lt_tadir
+            ORDER BY author, devclass, object, obj_name.
+        ENDIF.
       ENDIF.
     ENDIF.
 

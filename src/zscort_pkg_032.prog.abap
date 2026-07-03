@@ -1,15 +1,16 @@
 *&---------------------------------------------------------------------*
 *& Report : ZSCORT_PKG_032
-*& Title  : SCORT - Package Explorer (v2 - SE03 Object Directory style)
+*& Title  : SCORT - Repository Explorer (ADT-style tree)
 *& Author : DEV-032 | Package: ZSCORT_GSU26SAP05
 *& Date   : 2026-07-03
 *& Desc   : Browse repository objects as a hierarchical tree:
-*&          Owner (Person Responsible) > Package > Object Type > Object > Details
-*&          - Package is optional; if empty, query by Owner only
-*&          - Owner filter gives SE03-like behavior
-*&          - CL_SALV_TREE shows hierarchy instead of flat Object Type grouping
-*&          - Toolbar: Change Owner (mass), Change Package (mass), Open in SE80, Refresh
-*&          - Double-click object: open in SE80 (RS_TOOL_ACCESS)
+*&          Owner (Person Responsible) > Package > Folder > Object Type > Object
+*&          - Package is optional; Owner is Level 1 root of the tree
+*&          - No hard-coded object type filter: all types from TADIR are included
+*&          - Text filter: search objects by name substring
+*&          - Filter bar on ALV tree for Object Type columns (built-in CL_SALV)
+*&          - Toolbar: Change Owner, Change Package, Open in SE80, Refresh
+*&          - Double-click object: open in SE80
 *&          - Checkbox on object rows: multi-select for mass actions
 *& Pattern: OO-ABAP MVC (Controller Pattern)
 *&   Model      : ZCL_SCORT_REPOSITORY_032 (Global Class)
@@ -23,59 +24,28 @@ REPORT zscort_pkg_032
 *& SECTION 1: SELECTION SCREEN
 *&=====================================================================*
 
-" --- Block 1: Package ---
-DATA: gv_devcla TYPE tadir-devclass.
-
-SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
-  SELECT-OPTIONS s_devcla FOR gv_devcla.
-SELECTION-SCREEN END OF BLOCK b1.
-
-" --- Block: Owner (Person Responsible) - NEW (SE03 parity) ---
+" --- Block 1: Owner (Person Responsible) ---
 DATA: gv_author TYPE author.
 
-SELECTION-SCREEN BEGIN OF BLOCK b4 WITH FRAME TITLE TEXT-b04.
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
   SELECT-OPTIONS s_author FOR gv_author.
-SELECTION-SCREEN END OF BLOCK b4.
+SELECTION-SCREEN END OF BLOCK b1.
 
-" --- Block 2: 7 common object types + Select All ---
+" --- Block 2: Package (optional) ---
+DATA: gv_devcla TYPE tadir-devclass.
+
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-b02.
-  SELECTION-SCREEN BEGIN OF LINE.
-    SELECTION-SCREEN COMMENT 1(20) TEXT-c01.
-    PARAMETERS p_all AS CHECKBOX USER-COMMAND uc_all.
-  SELECTION-SCREEN END OF LINE.
-  SELECTION-SCREEN BEGIN OF LINE.
-    SELECTION-SCREEN COMMENT 1(20) TEXT-c02.
-    PARAMETERS p_prog AS CHECKBOX DEFAULT 'X'.
-    SELECTION-SCREEN COMMENT 25(15) TEXT-c03.
-    PARAMETERS p_clas AS CHECKBOX DEFAULT 'X'.
-    SELECTION-SCREEN COMMENT 45(15) TEXT-c04.
-    PARAMETERS p_tabl AS CHECKBOX DEFAULT 'X'.
-  SELECTION-SCREEN END OF LINE.
-  SELECTION-SCREEN BEGIN OF LINE.
-    SELECTION-SCREEN COMMENT 1(20) TEXT-c05.
-    PARAMETERS p_func AS CHECKBOX DEFAULT 'X'.
-    SELECTION-SCREEN COMMENT 25(15) TEXT-c06.
-    PARAMETERS p_dtel AS CHECKBOX DEFAULT 'X'.
-    SELECTION-SCREEN COMMENT 45(15) TEXT-c07.
-    PARAMETERS p_doma AS CHECKBOX DEFAULT 'X'.
-  SELECTION-SCREEN END OF LINE.
-  SELECTION-SCREEN BEGIN OF LINE.
-    SELECTION-SCREEN COMMENT 1(20) TEXT-c08.
-    PARAMETERS p_fugr AS CHECKBOX DEFAULT 'X'.
-  SELECTION-SCREEN END OF LINE.
+  SELECT-OPTIONS s_devcla FOR gv_devcla NO INTERVALS.
 SELECTION-SCREEN END OF BLOCK b2.
 
-" --- Block 3: Custom Object Type (one extra slot) ---
-DATA: gv_typ_custom TYPE trobjtype.
+" --- Block 3: Object Name filter ---
+DATA: gv_objname TYPE sobj_name.
 
 SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-b03.
-  SELECTION-SCREEN BEGIN OF LINE.
-    SELECTION-SCREEN COMMENT 1(30) TEXT-c09.
-    PARAMETERS p_custom TYPE trobjtype.
-  SELECTION-SCREEN END OF LINE.
+  SELECT-OPTIONS s_obj FOR gv_objname NO INTERVALS.
 SELECTION-SCREEN END OF BLOCK b3.
 
-SELECTION-SCREEN COMMENT /1(79) TEXT-c10.
+SELECTION-SCREEN COMMENT /1(79) TEXT-c01.
 
 *&=====================================================================*
 *& SECTION 2: LOCAL CLASS DEFINITION - Controller
@@ -85,9 +55,6 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
     METHODS:
       initialize,
       run,
-      is_all_selected
-        RETURNING VALUE(RV_ALL) TYPE abap_bool,
-      assert_min_one_type,
       on_double_click
         FOR EVENT double_click OF cl_salv_events_tree
         IMPORTING node_key columnname,
@@ -118,8 +85,6 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
     METHODS:
       fetch_data,
       display_tree,
-      build_type_range
-        RETURNING VALUE(RT_TYPE_RANGE) TYPE zcl_scort_repository_032=>tt_type_range,
       show_detail_popup
         IMPORTING is_object TYPE zscort_s_object,
       do_change_owner_mass,
@@ -151,31 +116,6 @@ INITIALIZATION.
   CREATE OBJECT go_ctrl.
   go_ctrl->initialize( ).
 
-  " --- AT SELECTION-SCREEN OUTPUT: when user toggles Select All, auto-check all 7 ---
-
-AT SELECTION-SCREEN OUTPUT.
-  IF go_ctrl IS BOUND.
-    IF go_ctrl->is_all_selected( ) = abap_true.
-      p_all = abap_true.
-    ELSE.
-      p_all = abap_false.
-    ENDIF.
-  ENDIF.
-
-  " --- AT SELECTION-SCREEN on uc_all: re-set all 7 checkboxes ---
-  " --- AT SELECTION-SCREEN: validate at least one type selected ---
-
-AT SELECTION-SCREEN.
-  IF sy-ucomm = 'UC_ALL' AND p_all = abap_true.
-    p_prog = abap_true. p_clas = abap_true. p_tabl = abap_true.
-    p_func = abap_true. p_dtel = abap_true. p_doma = abap_true.
-    p_fugr = abap_true.
-  ELSEIF sy-ucomm <> 'UC_ALL'.
-    go_ctrl->assert_min_one_type( ).
-  ENDIF.
-
-  " --- START-OF-SELECTION: F8 pressed ---
-
 START-OF-SELECTION.
   go_ctrl->run( ).
 
@@ -191,67 +131,22 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   METHOD run.
     fetch_data( ).
     IF mt_objects IS INITIAL.
-      MESSAGE 'No objects found. Check owner / object type filter.' TYPE 'S' DISPLAY LIKE 'W'.
+      MESSAGE 'No objects found. Check Owner / Package / Object Name filter.' TYPE 'S' DISPLAY LIKE 'W'.
       RETURN.
     ENDIF.
     display_tree( ).
   ENDMETHOD.
 
-  METHOD is_all_selected.
-    rv_all = COND #(
-      WHEN p_prog = abap_true AND p_clas = abap_true AND p_tabl = abap_true
-        AND p_func = abap_true AND p_dtel = abap_true AND p_doma = abap_true
-        AND p_fugr = abap_true
-      THEN abap_true
-      ELSE abap_false
-    ).
-  ENDMETHOD.
-
-  METHOD assert_min_one_type.
-    DATA(lv_any) = abap_false.
-    IF p_all  = abap_true OR p_prog = abap_true OR p_clas = abap_true
-      OR p_tabl = abap_true OR p_func = abap_true OR p_dtel = abap_true
-      OR p_doma = abap_true OR p_fugr = abap_true
-      OR p_custom IS NOT INITIAL.
-      lv_any = abap_true.
-    ENDIF.
-    IF lv_any = abap_false.
-      MESSAGE 'Please select at least one Object Type (or enter a Custom type).' TYPE 'E'.
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD build_type_range.
-    CLEAR rt_type_range.
-
-    " Select All = empty range (matches everything valid)
-    IF p_all = abap_true.
-      RETURN.
-    ENDIF.
-
-    IF p_prog = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'PROG' ) TO rt_type_range. ENDIF.
-    IF p_clas = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'CLAS' ) TO rt_type_range. ENDIF.
-    IF p_tabl = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'TABL' ) TO rt_type_range. ENDIF.
-    IF p_func = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'FUNC' ) TO rt_type_range. ENDIF.
-    IF p_dtel = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'DTEL' ) TO rt_type_range. ENDIF.
-    IF p_doma = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'DOMA' ) TO rt_type_range. ENDIF.
-    IF p_fugr = abap_true. APPEND VALUE #( sign = 'I' option = 'EQ' low = 'FUGR' ) TO rt_type_range. ENDIF.
-
-    IF p_custom IS NOT INITIAL.
-      APPEND VALUE #( sign = 'I' option = 'EQ' low = p_custom ) TO rt_type_range.
-    ENDIF.
-  ENDMETHOD.
-
   METHOD fetch_data.
     CLEAR: mt_objects, mt_node_keys, mt_checked, mv_total_count.
 
-    DATA(lt_type_range) = build_type_range( ).
-
     TRY.
-        mo_repo->get_objects_by_types(
+        " No object type restriction — all types from TADIR are included
+        mo_repo->get_objects_all_types(
           EXPORTING
             it_devclass = s_devcla[]
-            it_obj_type = lt_type_range
             it_author   = s_author[]
+            it_obj_name = s_obj[]
           IMPORTING
             et_objects  = mt_objects
         ).
@@ -259,22 +154,21 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         CLEAR mt_objects.
     ENDTRY.
 
+    " Sort: Owner > Package > Object Type > Object Name (required for sequential tree build)
+    SORT mt_objects BY author devclass object obj_name.
+
     mv_total_count = lines( mt_objects ).
   ENDMETHOD.
 
   METHOD display_tree.
-    DATA: lo_tree   TYPE REF TO cl_salv_tree,
-          lo_nodes  TYPE REF TO cl_salv_nodes,
-          lo_node   TYPE REF TO cl_salv_node,
-          lo_item   TYPE REF TO cl_salv_item,
-          lt_empty  TYPE TABLE OF zscort_s_object,
-          lo_funcs  TYPE REF TO cl_salv_functions_tree,
-          lo_cols   TYPE REF TO cl_salv_columns_tree,
-          lo_col    TYPE REF TO cl_salv_column,
-          lv_last_author TYPE author,
-          lv_last_package TYPE devclass,
-          lv_last_type TYPE trobjtype,
-          ls_node_map   TYPE lty_node_map.
+    DATA: lo_tree      TYPE REF TO cl_salv_tree,
+          lo_nodes     TYPE REF TO cl_salv_nodes,
+          lo_node      TYPE REF TO cl_salv_node,
+          lo_item     TYPE REF TO cl_salv_item,
+          lt_empty    TYPE TABLE OF zscort_s_object,
+          lo_funcs     TYPE REF TO cl_salv_functions_tree,
+          lo_cols     TYPE REF TO cl_salv_columns_tree,
+          lo_col      TYPE REF TO cl_salv_column.
 
     TRY.
         cl_salv_tree=>factory(
@@ -288,9 +182,6 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
     mo_tree = lo_tree.
 
-"    lv_header = |Package Explorer - { mv_total_count } objects - DEV-032 SCORT|.
-
-    " CL_SALV_TREE uses get_tree_settings (not get_display_settings)
     DATA(lo_tree_settings) = lo_tree->get_tree_settings( ).
     lo_tree_settings->set_hierarchy_header(
       CONV #( |Repository Explorer - { mv_total_count } objects - DEV-032 SCORT| )
@@ -323,31 +214,48 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         lo_col->set_medium_text( 'Version' ).
         lo_col->set_output_length( 8 ).
       CATCH cx_salv_not_found.
-        " ignore
     ENDTRY.
 
-    " Build tree nodes: Owner > Package > Object Type > Object
+    " =======================================================================
+    " Build ADT-style tree: Owner > Package > Folder > Object Type > Object
+    " =======================================================================
     lo_nodes = lo_tree->get_nodes( ).
-    CLEAR: lv_last_author, lv_last_package, lv_last_type, mt_node_keys.
+    CLEAR mt_node_keys.
 
-    DATA: lv_author_key TYPE lvc_nkey,
-          lv_package_key TYPE lvc_nkey,
-          lv_type_key TYPE lvc_nkey,
-          ls_parent LIKE LINE OF mt_objects,
-          ls_node_map   TYPE lty_node_map.
+    " Pre-define DDIC types set once (avoid recreating VALUE string_table in each REDUCE)
+    DATA(lt_ddic_types) = VALUE string_table(
+      ( `TABL` ) ( `VIEW` ) ( `DTEL` ) ( `DOMA` )
+      ( `SHLP` ) ( `TTYP` ) ( `STOB` )
+    ).
+
+    " Track current node keys at each level
+    DATA: lv_cur_author  TYPE author,
+          lv_cur_pkg     TYPE devclass,
+          lv_cur_folder  TYPE string,
+          lv_cur_type    TYPE trobjtype,
+          lv_author_key  TYPE lvc_nkey,
+          lv_pkg_key     TYPE lvc_nkey,
+          lv_folder_key  TYPE lvc_nkey,
+          lv_type_key    TYPE lvc_nkey,
+          ls_parent      LIKE LINE OF mt_objects,
+          ls_node_map    TYPE lty_node_map.
+
+    " Cached package descriptions
+    DATA: ls_pkg_desc TYPE zscort_s_object.
 
     TRY.
         LOOP AT mt_objects INTO DATA(ls_obj).
-          IF ls_obj-author <> lv_last_author
-             OR ls_obj-devclass <> lv_last_package
-             OR ls_obj-object <> lv_last_type.
-            lv_last_author = ls_obj-author.
-            lv_last_package = ls_obj-devclass.
-            lv_last_type = ls_obj-object.
 
-            DATA(lv_author_count) = REDUCE i( INIT sum = 0
+          " ---------- Level 1: Owner ----------
+          IF ls_obj-author <> lv_cur_author.
+            lv_cur_author = ls_obj-author.
+            CLEAR: lv_cur_pkg, lv_cur_folder, lv_cur_type.
+            " All packages under this owner
+            DATA(lv_owner_pkg_cnt) = REDUCE i(
+              INIT c = 0
               FOR wa IN mt_objects WHERE ( author = ls_obj-author )
-              NEXT sum = sum + 1 ).
+              NEXT c = c + 1 ).
+
             CLEAR ls_parent.
             ls_parent-author = ls_obj-author.
             lo_node = lo_nodes->add_node(
@@ -355,12 +263,30 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
               relationship  = if_salv_c_node_relation=>parent
               data_row      = ls_parent
             ).
-            lo_node->set_text( |{ ls_obj-author } ({ lv_author_count })| ).
+            lo_node->set_text( |{ ls_obj-author } ({ lv_owner_pkg_cnt })| ).
             lv_author_key = lo_node->get_key( ).
+          ENDIF.
 
-            DATA(lv_package_count) = REDUCE i( INIT sum = 0
-              FOR wa IN mt_objects WHERE ( author = ls_obj-author AND devclass = ls_obj-devclass )
-              NEXT sum = sum + 1 ).
+          " ---------- Level 2: Package ----------
+          IF ls_obj-devclass <> lv_cur_pkg.
+            lv_cur_pkg = ls_obj-devclass.
+            CLEAR: lv_cur_folder, lv_cur_type.
+            " All objects under this package
+            DATA(lv_pkg_obj_cnt) = REDUCE i(
+              INIT c = 0
+              FOR wa IN mt_objects
+              WHERE ( author = lv_cur_author AND devclass = ls_obj-devclass )
+              NEXT c = c + 1 ).
+
+            " Fetch package description from TDEVC
+            DATA(lv_pkg_desc) = VALUE string( ).
+            SELECT SINGLE descript FROM tdevc
+              INTO @DATA(lv_tdevc_desc)
+              WHERE devclass = @ls_obj-devclass.
+            IF sy-subrc = 0 AND lv_tdevc_desc IS NOT INITIAL.
+              lv_pkg_desc = | - { lv_tdevc_desc }|.
+            ENDIF.
+
             CLEAR ls_parent.
             ls_parent-devclass = ls_obj-devclass.
             lo_node = lo_nodes->add_node(
@@ -368,43 +294,99 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
               relationship  = if_salv_c_node_relation=>last_child
               data_row      = ls_parent
             ).
-            lo_node->set_text( |{ ls_obj-devclass } ({ lv_package_count })| ).
-            lv_package_key = lo_node->get_key( ).
+            lo_node->set_text( |{ ls_obj-devclass } ({ lv_pkg_obj_cnt }){ lv_pkg_desc }| ).
+            IF lv_pkg_desc IS NOT INITIAL.
+              lo_node->set_tooltip( CONV #( lv_pkg_desc ) ).
+            ENDIF.
+            lv_pkg_key = lo_node->get_key( ).
+          ENDIF.
 
-            DATA(lv_type_count) = REDUCE i( INIT sum = 0
-              FOR wa IN mt_objects WHERE ( author = ls_obj-author AND devclass = ls_obj-devclass AND object = ls_obj-object )
-              NEXT sum = sum + 1 ).
+          " ---------- Level 3: Folder (Dictionary or Source Code Library) ----------
+          DATA(lv_folder) = COND string(
+            WHEN ls_obj-object IN VALUE string_table(
+              ( `TABL` ) ( `VIEW` ) ( `DTEL` ) ( `DOMA` )
+              ( `SHLP` ) ( `TTYP` ) ( `STOB` ) )
+            THEN `Dictionary`
+            ELSE `Source Code Library`
+          ).
+
+          IF lv_folder <> lv_cur_folder.
+            lv_cur_folder = lv_folder.
+            CLEAR lv_cur_type.
+            " Count objects in this folder under current package
+            IF lv_folder = `Dictionary`.
+              DATA(lv_folder_cnt) = REDUCE i(
+                INIT c = 0
+                FOR wa IN mt_objects
+                WHERE ( author = lv_cur_author
+                    AND devclass = lv_cur_pkg
+                    AND object IN lt_ddic_types )
+                NEXT c = c + 1 ).
+            ELSE.
+              lv_folder_cnt = REDUCE i(
+                INIT c = 0
+                FOR wa IN mt_objects
+                WHERE ( author = lv_cur_author
+                    AND devclass = lv_cur_pkg
+                    AND object NOT IN lt_ddic_types )
+                NEXT c = c + 1 ).
+            ENDIF.
+
             CLEAR ls_parent.
-            ls_parent-object = ls_obj-object.
             lo_node = lo_nodes->add_node(
-              related_node = lv_package_key
+              related_node = lv_pkg_key
               relationship  = if_salv_c_node_relation=>last_child
               data_row      = ls_parent
             ).
-            lo_node->set_text( |{ ls_obj-object } ({ lv_type_count })| ).
+            lo_node->set_text( |{ lv_folder } ({ lv_folder_cnt })| ).
+            lv_folder_key = lo_node->get_key( ).
+          ENDIF.
+
+          " ---------- Level 4: Object Type ----------
+          IF ls_obj-object <> lv_cur_type.
+            lv_cur_type = ls_obj-object.
+            " Count objects of this type under current package
+            DATA(lv_type_cnt) = REDUCE i(
+              INIT c = 0
+              FOR wa IN mt_objects
+              WHERE ( author = lv_cur_author
+                  AND devclass = lv_cur_pkg
+                  AND object = ls_obj-object )
+              NEXT c = c + 1 ).
+
+            CLEAR ls_parent.
+            ls_parent-object = ls_obj-object.
+            lo_node = lo_nodes->add_node(
+              related_node = lv_folder_key
+              relationship  = if_salv_c_node_relation=>last_child
+              data_row      = ls_parent
+            ).
+            lo_node->set_text( |{ ls_obj-object } ({ lv_type_cnt })| ).
             lv_type_key = lo_node->get_key( ).
           ENDIF.
 
-          DATA(lo_child) = lo_nodes->add_node(
+          " ---------- Level 5: Object leaf ----------
+          lo_node = lo_nodes->add_node(
             related_node = lv_type_key
             relationship  = if_salv_c_node_relation=>last_child
             data_row      = ls_obj
           ).
+          lo_node->set_text( ls_obj-obj_name ).
 
-          " Child gets checkbox (editable)
-          lo_item = lo_child->get_hierarchy_item( ).
+          " Leaf gets checkbox (editable)
+          lo_item = lo_node->get_hierarchy_item( ).
           lo_item->set_type( if_salv_c_item_type=>checkbox ).
           lo_item->set_editable( abap_true ).
 
-          ls_node_map-node_key = lo_child->get_key( ).
+          ls_node_map-node_key = lo_node->get_key( ).
           ls_node_map-obj_name = ls_obj-obj_name.
           ls_node_map-obj_type = ls_obj-object.
           APPEND ls_node_map TO mt_node_keys.
+
         ENDLOOP.
 
         lo_nodes->expand_all( ).
       CATCH cx_salv_not_found cx_salv_msg.
-        " Node build failure - log and fall through (no nodes = empty tree)
         MESSAGE 'Tree node build failed - object list returned but tree could not render.' TYPE 'W'.
         RETURN.
     ENDTRY.
@@ -820,17 +802,7 @@ ENDCLASS.
 "*&---------------------------------------------------------------------*
 "*& TEXT SYMBOLS
 "*&---------------------------------------------------------------------*
-" TEXT-b01 = 'Package Selection'.
-" TEXT-b02 = 'Object Types'.
-" TEXT-b03 = 'Custom Object Type'.
-" TEXT-b04 = 'Owner (Person Responsible)'.
-" TEXT-c01 = 'Select All'.
-" TEXT-c02 = '[ ] Programs'.
-" TEXT-c03 = '[ ] Classes'.
-" TEXT-c04 = '[ ] Tables'.
-" TEXT-c05 = '[ ] Function Modules'.
-" TEXT-c06 = '[ ] Data Elements'.
-" TEXT-c07 = '[ ] Domains'.
-" TEXT-c08 = '[ ] Function Groups'.
-" TEXT-c09 = 'Custom Type (e.g. INTF/MESG/...)'.
-" TEXT-c10 = 'Tick Object Type checkboxes (use Select All to include all 7 types). Enter Custom to extend scope.'.
+" TEXT-b01 = 'Owner (Person Responsible)'.
+" TEXT-b02 = 'Package (optional)'.
+" TEXT-b03 = 'Object Name Filter'.
+" TEXT-c01 = 'All object types from TADIR are included. Use Object Name for substring search. Use Owner as Level 1 root.'.
