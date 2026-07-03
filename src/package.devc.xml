@@ -3,7 +3,6 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <DEVC>
-    <DEVCLASS>ZSCORT_GSU26SAP05</DEVCLASS>
     <CTEXT>Main Package for Project Capstone - GSU26SAP05</CTEXT>
    </DEVC>
   </asx:values>

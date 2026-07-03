@@ -2,7 +2,7 @@ class ZCL_SCORT_CONSTANTS definition
   public
   final
   create public
-  global friends ZIF_SCORT_CONSTANTS.
+  friends ZIF_SCORT_CONSTANTS .
 
 public section.
 
@@ -41,13 +41,13 @@ CLASS ZCL_SCORT_CONSTANTS IMPLEMENTATION.
 
   METHOD zif_scort_constants~get_valid_types.
     rt_types = VALUE #(
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_prog )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_clas )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_tabl )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_doma )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_dtel )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_fugr )
-      ( sign = 'I' option = 'EQ' low = zif_scort_constants~gc_obj_tran )
+      ( object = zif_scort_constants~gc_obj_prog label = 'Programs / Reports' )
+      ( object = zif_scort_constants~gc_obj_clas label = 'ABAP Classes' )
+      ( object = zif_scort_constants~gc_obj_tabl label = 'Database Tables' )
+      ( object = zif_scort_constants~gc_obj_doma label = 'Domains' )
+      ( object = zif_scort_constants~gc_obj_dtel label = 'Data Elements' )
+      ( object = zif_scort_constants~gc_obj_fugr label = 'Function Groups' )
+      ( object = zif_scort_constants~gc_obj_tran label = 'Transactions' )
     ).
   ENDMETHOD.
 

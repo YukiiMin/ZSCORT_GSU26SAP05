@@ -2,7 +2,7 @@ class ZCL_SCORT_REPO_MUTATOR_032 definition
   public
   final
   create public
-  global friends ZIF_SCORT_REPO_MUTATOR.
+  friends ZIF_SCORT_REPO_MUTATOR .
 
 public section.
 
