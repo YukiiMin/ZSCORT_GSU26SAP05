@@ -3,13 +3,14 @@
 *& Title  : SCORT - Package Explorer (v2 - SE03 Object Directory style)
 *& Author : DEV-032 | Package: ZSCORT_GSU26SAP05
 *& Date   : 2026-07-03
-*& Desc   : Browse package contents grouped by Object Type as a real TREE.
-*&          - 7 common object types as checkboxes + 1 Custom input + Select All
-*&          - Owner filter (Person Responsible) - SE03 parity
-*&          - CL_SALV_TREE: parent = Object Type, child = Object Names
+*& Desc   : Browse repository objects as a hierarchical tree:
+*&          Owner (Person Responsible) > Package > Object Type > Object > Details
+*&          - Package is optional; if empty, query by Owner only
+*&          - Owner filter gives SE03-like behavior
+*&          - CL_SALV_TREE shows hierarchy instead of flat Object Type grouping
 *&          - Toolbar: Change Owner (mass), Change Package (mass), Open in SE80, Refresh
-*&          - Double-click child: open object directly in SE80 (RS_TOOL_ACCESS)
-*&          - Checkbox on child: multi-select for mass actions
+*&          - Double-click object: open in SE80 (RS_TOOL_ACCESS)
+*&          - Checkbox on object rows: multi-select for mass actions
 *& Pattern: OO-ABAP MVC (Controller Pattern)
 *&   Model      : ZCL_SCORT_REPOSITORY_032 (Global Class)
 *&   View       : CL_SALV_TREE + Selection Screen
@@ -26,7 +27,7 @@ REPORT zscort_pkg_032
 DATA: gv_devcla TYPE tadir-devclass.
 
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
-  SELECT-OPTIONS s_devcla FOR gv_devcla OBLIGATORY.
+  SELECT-OPTIONS s_devcla FOR gv_devcla.
 SELECTION-SCREEN END OF BLOCK b1.
 
 " --- Block: Owner (Person Responsible) - NEW (SE03 parity) ---
@@ -190,7 +191,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   METHOD run.
     fetch_data( ).
     IF mt_objects IS INITIAL.
-      MESSAGE 'No objects found. Check package / object type filter.' TYPE 'S' DISPLAY LIKE 'W'.
+      MESSAGE 'No objects found. Check owner / object type filter.' TYPE 'S' DISPLAY LIKE 'W'.
       RETURN.
     ENDIF.
     display_tree( ).
@@ -270,9 +271,10 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           lo_funcs  TYPE REF TO cl_salv_functions_tree,
           lo_cols   TYPE REF TO cl_salv_columns_tree,
           lo_col    TYPE REF TO cl_salv_column,
-          lv_last   TYPE trobjtype,
-          ls_parent LIKE LINE OF lt_empty.
-"          lv_header TYPE string.
+          lv_last_author TYPE author,
+          lv_last_package TYPE devclass,
+          lv_last_type TYPE trobjtype,
+          ls_node_map   TYPE lty_node_map.
 
     TRY.
         cl_salv_tree=>factory(
@@ -291,7 +293,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     " CL_SALV_TREE uses get_tree_settings (not get_display_settings)
     DATA(lo_tree_settings) = lo_tree->get_tree_settings( ).
     lo_tree_settings->set_hierarchy_header(
-      CONV #( |Package Explorer - { mv_total_count } objects - DEV-032 SCORT| )
+      CONV #( |Repository Explorer - { mv_total_count } objects - DEV-032 SCORT| )
     ).
 
     lo_funcs = lo_tree->get_functions( ).
@@ -324,37 +326,67 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         " ignore
     ENDTRY.
 
-    " Build tree nodes
+    " Build tree nodes: Owner > Package > Object Type > Object
     lo_nodes = lo_tree->get_nodes( ).
-    CLEAR: lv_last, ls_parent, mt_node_keys.
+    CLEAR: lv_last_author, lv_last_package, lv_last_type, mt_node_keys.
 
-    DATA: lv_parent_key TYPE lvc_nkey,
+    DATA: lv_author_key TYPE lvc_nkey,
+          lv_package_key TYPE lvc_nkey,
+          lv_type_key TYPE lvc_nkey,
+          ls_parent LIKE LINE OF mt_objects,
           ls_node_map   TYPE lty_node_map.
 
     TRY.
         LOOP AT mt_objects INTO DATA(ls_obj).
-          IF ls_obj-object <> lv_last.
-            lv_last = ls_obj-object.
+          IF ls_obj-author <> lv_last_author
+             OR ls_obj-devclass <> lv_last_package
+             OR ls_obj-object <> lv_last_type.
+            lv_last_author = ls_obj-author.
+            lv_last_package = ls_obj-devclass.
+            lv_last_type = ls_obj-object.
 
-            DATA(lv_group_count) = REDUCE i( INIT sum = 0
-              FOR wa IN mt_objects WHERE ( object = ls_obj-object )
+            DATA(lv_author_count) = REDUCE i( INIT sum = 0
+              FOR wa IN mt_objects WHERE ( author = ls_obj-author )
               NEXT sum = sum + 1 ).
-
             CLEAR ls_parent.
-            ls_parent-object = ls_obj-object.
-
+            ls_parent-author = ls_obj-author.
             lo_node = lo_nodes->add_node(
               related_node = ''
               relationship  = if_salv_c_node_relation=>parent
               data_row      = ls_parent
             ).
-            lo_node->set_text( |{ ls_obj-object } ({ lv_group_count })| ).
+            lo_node->set_text( |{ ls_obj-author } ({ lv_author_count })| ).
+            lv_author_key = lo_node->get_key( ).
 
-            lv_parent_key = lo_node->get_key( ).
+            DATA(lv_package_count) = REDUCE i( INIT sum = 0
+              FOR wa IN mt_objects WHERE ( author = ls_obj-author AND devclass = ls_obj-devclass )
+              NEXT sum = sum + 1 ).
+            CLEAR ls_parent.
+            ls_parent-devclass = ls_obj-devclass.
+            lo_node = lo_nodes->add_node(
+              related_node = lv_author_key
+              relationship  = if_salv_c_node_relation=>last_child
+              data_row      = ls_parent
+            ).
+            lo_node->set_text( |{ ls_obj-devclass } ({ lv_package_count })| ).
+            lv_package_key = lo_node->get_key( ).
+
+            DATA(lv_type_count) = REDUCE i( INIT sum = 0
+              FOR wa IN mt_objects WHERE ( author = ls_obj-author AND devclass = ls_obj-devclass AND object = ls_obj-object )
+              NEXT sum = sum + 1 ).
+            CLEAR ls_parent.
+            ls_parent-object = ls_obj-object.
+            lo_node = lo_nodes->add_node(
+              related_node = lv_package_key
+              relationship  = if_salv_c_node_relation=>last_child
+              data_row      = ls_parent
+            ).
+            lo_node->set_text( |{ ls_obj-object } ({ lv_type_count })| ).
+            lv_type_key = lo_node->get_key( ).
           ENDIF.
 
           DATA(lo_child) = lo_nodes->add_node(
-            related_node = lv_parent_key
+            related_node = lv_type_key
             relationship  = if_salv_c_node_relation=>last_child
             data_row      = ls_obj
           ).

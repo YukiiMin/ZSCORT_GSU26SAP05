@@ -503,6 +503,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 * SCORT: Get objects by package range + object-type range
 *        Used by Package Explorer with user-selected types
 *        If it_obj_type is empty → match all valid types (full TADIR scan)
+*        If package range is empty but owner range is supplied → query by owner instead
 *--------------------------------------------------------------------*
     CLEAR et_objects.
 
@@ -531,22 +532,40 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
            END OF ty_tadir.
     DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
 
-    " Empty author range = no filter (vs SELECT-IN which would return 0 rows)
-    IF it_author IS NOT INITIAL.
-      SELECT obj_name, object, devclass, author, srcsystem, versid
-        FROM tadir
-        INTO TABLE @lt_tadir
-        WHERE devclass IN @it_devclass
-          AND object   IN @lt_final_types
-          AND author   IN @it_author
-        ORDER BY object, obj_name.
+    " Package is optional: if no package is selected, fall back to owner filter.
+    " Do NOT force devclass filter when it_devclass is empty.
+    IF it_devclass IS NOT INITIAL.
+      IF it_author IS NOT INITIAL.
+        SELECT obj_name, object, devclass, author, srcsystem, versid
+          FROM tadir
+          INTO TABLE @lt_tadir
+          WHERE devclass IN @it_devclass
+            AND object   IN @lt_final_types
+            AND author   IN @it_author
+          ORDER BY object, obj_name.
+      ELSE.
+        SELECT obj_name, object, devclass, author, srcsystem, versid
+          FROM tadir
+          INTO TABLE @lt_tadir
+          WHERE devclass IN @it_devclass
+            AND object   IN @lt_final_types
+          ORDER BY object, obj_name.
+      ENDIF.
     ELSE.
-      SELECT obj_name, object, devclass, author, srcsystem, versid
-        FROM tadir
-        INTO TABLE @lt_tadir
-        WHERE devclass IN @it_devclass
-          AND object   IN @lt_final_types
-        ORDER BY object, obj_name.
+      IF it_author IS NOT INITIAL.
+        SELECT obj_name, object, devclass, author, srcsystem, versid
+          FROM tadir
+          INTO TABLE @lt_tadir
+          WHERE object   IN @lt_final_types
+            AND author   IN @it_author
+          ORDER BY object, obj_name.
+      ELSE.
+        SELECT obj_name, object, devclass, author, srcsystem, versid
+          FROM tadir
+          INTO TABLE @lt_tadir
+          WHERE object   IN @lt_final_types
+          ORDER BY object, obj_name.
+      ENDIF.
     ENDIF.
 
     IF sy-subrc = 0.
