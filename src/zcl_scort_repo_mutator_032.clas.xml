@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_SCORT_REPO_MUTATOR_032</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Repository Write Operations (CQRS - Command)</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>CHANGE_OBJECT_PACKAGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Move object to a different development package</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CHANGE_OBJECT_OWNER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Change owner/author of a repository object</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>VALIDATE_USER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Validate that a user exists in the system</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>VALIDATE_PACKAGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Validate that a package exists in TDEVC</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

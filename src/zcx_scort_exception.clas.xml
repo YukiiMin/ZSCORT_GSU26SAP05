@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCX_SCORT_EXCEPTION</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Custom Exception for Repository Operations</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_ERR_INVALID_USER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Error constant: invalid user</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_ERR_INVALID_PACKAGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Error constant: invalid package</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_ERR_OBJECT_NOT_FOUND</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Error constant: object not found</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_ERR_UPDATE_FAILED</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Error constant: update failed</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GC_ERR_LOCK_FAILED</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Error constant: lock failed</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>CONSTRUCTOR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Constructor</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

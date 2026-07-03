@@ -1,0 +1,68 @@
+{
+  "format": {
+    "style": "spaces"
+  },
+  "global": {
+    "skipGeneratedGatewayClasses": true,
+    "skipGeneratedTestClasses": true
+  },
+  "selectors": [
+    {
+      "name": "SCORT",
+      "type": "abapGit",
+      "folder": "src",
+      "files": "/src/.*\\.(abap|asprog|asinc|incl)$"
+    }
+  ],
+  "rules": {
+    "no_prefixes": {
+      "enabled": false
+    },
+    "select_performs": {
+      "enabled": false
+    },
+    "maximum_line_length": {
+      "enabled": true,
+      "length": 160,
+      "exclude": ["\\.clas\\.abap$"]
+    },
+    "maximum_method_length": {
+      "enabled": true,
+      "length": 200,
+      "exclude": ["\\.clas\\.abap$"]
+    },
+    "cyclomatic_complexity": {
+      "enabled": true,
+      "max": 10
+    },
+    "nesting_depth": {
+      "enabled": true,
+      "depth": 4
+    },
+    "allowed_object_types": {
+      "enabled": false
+    },
+    "forbidden_object_types": {
+      "enabled": false
+    },
+    "method_length": {
+      "enabled": false
+    },
+    "parser_error": {
+      "enabled": true
+    },
+    "try_without_catch": {
+      "enabled": true
+    },
+    "unused_variables": {
+      "enabled": true,
+      "threshold": 2
+    },
+    "check_no_handler_pragma": {
+      "enabled": false
+    }
+  },
+  "dependencies": {
+    "unused-imports": "5.0.0"
+  }
+}

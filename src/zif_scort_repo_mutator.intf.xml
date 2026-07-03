@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_INTF" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEointerf>
+    <CLSNAME>ZIF_SCORT_REPO_MUTATOR</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Repository Mutation Interface (CQRS Command Side)</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+   </VSEointerf>
+   <DESCRIPTIONS>
+    <SEOINTERFTX>
+     <CMPNAME>CHANGE_OBJECT_PACKAGE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Move object to a different development package</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>CHANGE_OBJECT_OWNER</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Change owner/author of a repository object</DESCRIPT>
+    </SEOINTERFTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

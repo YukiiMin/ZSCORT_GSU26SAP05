@@ -4,13 +4,10 @@
 *& Author : DEV-032 | Package: ZSCORT_GSU26SAP05
 *& Date   : 2026-07-03
 *& Desc   : Browse repository objects as a hierarchical tree:
-*&          Owner (Person Responsible) > Package > Folder > Object Type > Object
-*&          - Package is optional; Owner is Level 1 root of the tree
-*&          - No hard-coded object type filter: all types from TADIR are included
-*&          - Text filter: search objects by name substring
-*&          - Filter bar on ALV tree for Object Type columns (built-in CL_SALV)
-*&          - Toolbar: Change Owner, Change Package, Open in SE80, Refresh
-*&          - Double-click object: open in SE80
+*&          Owner > Package > Object Type > Object
+*&          - Right-click context menu on any node (View Details, Change Owner, Change Package, Open in SE80)
+*&          - Double-click object leaf → View Details
+*&          - Double-click parent node → expand/collapse
 *&          - Checkbox on object rows: multi-select for mass actions
 *& Pattern: OO-ABAP MVC (Controller Pattern)
 *&   Model      : ZCL_SCORT_REPOSITORY_032 (Global Class)
@@ -24,21 +21,18 @@ REPORT zscort_pkg_032
 *& SECTION 1: SELECTION SCREEN
 *&=====================================================================*
 
-" --- Block 1: Owner (Person Responsible) ---
 DATA: gv_author TYPE author.
 
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
   SELECT-OPTIONS s_author FOR gv_author.
 SELECTION-SCREEN END OF BLOCK b1.
 
-" --- Block 2: Package (optional) ---
 DATA: gv_devcla TYPE tadir-devclass.
 
 SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-b02.
   SELECT-OPTIONS s_devcla FOR gv_devcla NO INTERVALS.
 SELECTION-SCREEN END OF BLOCK b2.
 
-" --- Block 3: Object Name filter ---
 DATA: gv_objname TYPE sobj_name.
 
 SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE TEXT-b03.
@@ -48,10 +42,49 @@ SELECTION-SCREEN END OF BLOCK b3.
 SELECTION-SCREEN COMMENT /1(79) TEXT-c01.
 
 *&=====================================================================*
-*& SECTION 2: LOCAL CLASS DEFINITION - Controller
+*& SECTION 2: LOCAL CLASS - EVENT HANDLER (Inherit to expose protected CONTEXT_MENU)
+*&=====================================================================*
+CLASS lcl_salv_event_handler DEFINITION INHERITING FROM cl_salv_events_tree.
+  PUBLIC SECTION.
+    METHODS:
+      constructor
+        IMPORTING
+          io_controller TYPE REF TO lcl_pkg_controller,
+          io_tree        TYPE REF TO cl_salv_tree,
+      on_context_menu
+        FOR EVENT context_menu
+        IMPORTING e_object.
+  PRIVATE SECTION.
+    DATA: mo_controller TYPE REF TO lcl_pkg_controller,
+          mo_tree       TYPE REF TO cl_salv_tree.
+ENDCLASS.
+
+*&=====================================================================*
+*& SECTION 3: GLOBAL TYPES
+*&=====================================================================*
+TYPES:
+  BEGIN OF lty_node_info,
+    node_key TYPE lvc_nkey,
+    level    TYPE char1,
+    obj_name TYPE sobj_name,
+    obj_type TYPE trobjtype,
+    devclass TYPE devclass,
+  END OF lty_node_info,
+  tt_node_info TYPE TABLE OF lty_node_info,
+
+  BEGIN OF lty_node_map,
+    node_key TYPE lvc_nkey,
+    obj_name TYPE sobj_name,
+    obj_type TYPE trobjtype,
+  END OF lty_node_map,
+  tt_node_map TYPE TABLE OF lty_node_map.
+
+*&=====================================================================*
+*& SECTION 4: LOCAL CLASS DEFINITION - Controller
 *&=====================================================================*
 CLASS lcl_pkg_controller DEFINITION FINAL.
   PUBLIC SECTION.
+
     METHODS:
       initialize,
       run,
@@ -61,24 +94,23 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       on_checkbox_change
         FOR EVENT checkbox_change OF cl_salv_events_tree
         IMPORTING node_key checked,
-      on_user_command
-        FOR EVENT added_function OF cl_salv_events
+      on_toolbar_button_click
+        FOR EVENT toolbar_button_click OF cl_salv_events_tree
+        IMPORTING node_key e_salv_function,
+      on_added_function
+        FOR EVENT added_function OF cl_salv_events_tree
         IMPORTING e_salv_function.
 
   PRIVATE SECTION.
-    TYPES:
-      BEGIN OF lty_node_map,
-        node_key TYPE lvc_nkey,
-        obj_name TYPE sobj_name,
-        obj_type TYPE trobjtype,
-      END OF lty_node_map,
-      tt_node_map TYPE TABLE OF lty_node_map.
 
     DATA:
-      mo_repo        TYPE REF TO zcl_scort_repository_032,
+      mo_reader     TYPE REF TO zif_scort_repo_reader,
+      mo_mutator    TYPE REF TO zif_scort_repo_mutator,
       mo_tree        TYPE REF TO cl_salv_tree,
+      mo_evt_handler TYPE REF TO lcl_salv_event_handler,
       mt_objects     TYPE zscort_t_objects,
       mt_node_keys   TYPE tt_node_map,
+      mt_node_info   TYPE tt_node_info,
       mt_checked     TYPE tt_node_map,
       mv_total_count TYPE i.
 
@@ -87,31 +119,22 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       display_tree,
       show_detail_popup
         IMPORTING is_object TYPE zscort_s_object,
-      do_change_owner_mass,
-      do_change_package_mass,
-      do_change_owner
-        IMPORTING iv_new_owner TYPE author
-                  is_object    TYPE zscort_s_object OPTIONAL
-        CHANGING  ct_objects   TYPE zscort_t_objects,
-      do_change_package
-        IMPORTING iv_new_package TYPE devclass
-                  is_object      TYPE zscort_s_object OPTIONAL
-        CHANGING  ct_objects     TYPE zscort_t_objects,
+      do_change_owner_single
+        IMPORTING is_object TYPE zscort_s_object,
+      do_change_package_single
+        IMPORTING is_object TYPE zscort_s_object,
       collect_checked_objects
-        RETURNING VALUE(RT_OBJECTS) TYPE zscort_t_objects.
+        RETURNING VALUE(rt_objects) TYPE zscort_t_objects.
 ENDCLASS.
 
 *&=====================================================================*
-*& SECTION 3: GLOBAL VARIABLE
+*& SECTION 5: GLOBAL VARIABLE
 *&=====================================================================*
 DATA: go_ctrl TYPE REF TO lcl_pkg_controller.
 
 *&=====================================================================*
-*& SECTION 4: SAP EVENTS
+*& SECTION 6: SAP EVENTS
 *&=====================================================================*
-
-" --- INITIALIZATION: construct controller first ---
-
 INITIALIZATION.
   CREATE OBJECT go_ctrl.
   go_ctrl->initialize( ).
@@ -120,12 +143,75 @@ START-OF-SELECTION.
   go_ctrl->run( ).
 
 *&=====================================================================*
-*& SECTION 5: CLASS IMPLEMENTATION
+*& SECTION 7: CLASS IMPLEMENTATION
 *&=====================================================================*
+
+* --- Event Handler Implementation (before controller) ---
+CLASS lcl_salv_event_handler IMPLEMENTATION.
+
+  METHOD constructor.
+    super->constructor( ).
+    mo_controller = io_controller.
+    mo_tree = io_tree.
+  ENDMETHOD.
+
+  METHOD on_context_menu.
+    " e_object is the CL_CTMENU reference
+    " Try to get the selected node to determine context
+    DATA: lo_selected TYPE REF TO cl_salv_node,
+          ls_ninfo    TYPE lty_node_info.
+
+    TRY.
+        lo_selected = mo_tree->get_nodes( )->get_selected_node( ).
+        IF lo_selected IS BOUND.
+          DATA(lv_key) = lo_selected->get_key( ).
+          READ TABLE mo_controller->mt_node_info INTO ls_ninfo
+            WITH KEY node_key = CONV lvc_nkey( lv_key ).
+        ENDIF.
+      CATCH cx_root.
+        CLEAR ls_ninfo.
+    ENDTRY.
+
+    " Level 4 leaf (object) → full menu
+    IF ls_ninfo-level = '4'.
+      e_object->add_function(
+        fcode = 'VIEW_DETAIL'
+        text  = 'View Details'
+        icon  = CONV string( '@2Q@' )
+      ).
+      e_object->add_function(
+        fcode = 'OPEN_SE80'
+        text  = 'Open in SE80'
+        icon  = CONV string( '@0Q@' )
+      ).
+      e_object->add_separator( ).
+      e_object->add_function(
+        fcode = 'CHG_OWNER_CTX'
+        text  = 'Change Owner'
+        icon  = CONV string( '@IO@' )
+      ).
+      e_object->add_function(
+        fcode = 'CHG_PKG_CTX'
+        text  = 'Change Package'
+        icon  = CONV string( '@BW@' )
+      ).
+    ELSE.
+      " Parent node → limited menu
+      e_object->add_function(
+        fcode = 'REFRESH'
+        text  = 'Refresh Tree'
+        icon  = CONV string( '@3I@' )
+      ).
+    ENDIF.
+  ENDMETHOD.
+
+ENDCLASS.
+
 CLASS lcl_pkg_controller IMPLEMENTATION.
 
   METHOD initialize.
-    CREATE OBJECT mo_repo.
+    mo_reader  = zcl_scort_factory=>get_reader( ).
+    mo_mutator = zcl_scort_factory=>get_mutator( ).
   ENDMETHOD.
 
   METHOD run.
@@ -138,11 +224,10 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fetch_data.
-    CLEAR: mt_objects, mt_node_keys, mt_checked, mv_total_count.
+    CLEAR: mt_objects, mt_node_keys, mt_node_info, mt_checked, mv_total_count.
 
     TRY.
-        " No object type restriction — all types from TADIR are included
-        mo_repo->get_objects_all_types(
+        mo_reader->get_objects_all_types(
           EXPORTING
             it_devclass = s_devcla[]
             it_author   = s_author[]
@@ -154,9 +239,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         CLEAR mt_objects.
     ENDTRY.
 
-    " Sort: Owner > Package > Object Type > Object Name (required for sequential tree build)
     SORT mt_objects BY author devclass object obj_name.
-
     mv_total_count = lines( mt_objects ).
   ENDMETHOD.
 
@@ -164,11 +247,12 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     DATA: lo_tree      TYPE REF TO cl_salv_tree,
           lo_nodes     TYPE REF TO cl_salv_nodes,
           lo_node      TYPE REF TO cl_salv_node,
-          lo_item     TYPE REF TO cl_salv_item,
-          lt_empty    TYPE TABLE OF zscort_s_object,
+          lo_item      TYPE REF TO cl_salv_item,
           lo_funcs     TYPE REF TO cl_salv_functions_tree,
-          lo_cols     TYPE REF TO cl_salv_columns_tree,
-          lo_col      TYPE REF TO cl_salv_column.
+          lo_cols      TYPE REF TO cl_salv_columns_tree,
+          lo_col       TYPE REF TO cl_salv_column,
+          lo_evt       TYPE REF TO cl_salv_events_tree,
+          lt_empty     TYPE TABLE OF zscort_s_object.
 
     TRY.
         cl_salv_tree=>factory(
@@ -182,15 +266,13 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
 
     mo_tree = lo_tree.
 
-    DATA(lo_tree_settings) = lo_tree->get_tree_settings( ).
-    lo_tree_settings->set_hierarchy_header(
-      CONV #( |Repository Explorer - { mv_total_count } objects - DEV-032 SCORT| )
+    lo_tree->get_tree_settings( )->set_hierarchy_header(
+      CONV #( |Repository Explorer - { mv_total_count } object(s)| )
     ).
 
     lo_funcs = lo_tree->get_functions( ).
     lo_funcs->set_all( abap_true ).
 
-    " Configure columns
     lo_cols = lo_tree->get_columns( ).
     lo_cols->set_optimize( abap_true ).
     TRY.
@@ -199,7 +281,6 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         lo_col->set_output_length( 8 ).
         lo_col = lo_cols->get_column( 'OBJ_NAME' ).
         lo_col->set_medium_text( 'Object Name' ).
-        lo_col->set_long_text( 'Repository Object Name' ).
         lo_col->set_output_length( 40 ).
         lo_col = lo_cols->get_column( 'DEVCLASS' ).
         lo_col->set_medium_text( 'Package' ).
@@ -216,230 +297,191 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
       CATCH cx_salv_not_found.
     ENDTRY.
 
-    " =======================================================================
-    " Build ADT-style tree: Owner > Package > Folder > Object Type > Object
-    " =======================================================================
+    " ===================================================================
+    " Build ADT-style tree: Owner > Package > Object Type > Object
+    " No intermediate Folder level — Object Type already distinguishes
+    " Dictionary vs Source Code Library in its label
+    " ===================================================================
     lo_nodes = lo_tree->get_nodes( ).
-    CLEAR mt_node_keys.
+    CLEAR: mt_node_keys, mt_node_info.
 
-    " Pre-define DDIC types set once (avoid recreating VALUE string_table in each REDUCE)
-    DATA(lt_ddic_types) = VALUE string_table(
-      ( `TABL` ) ( `VIEW` ) ( `DTEL` ) ( `DOMA` )
-      ( `SHLP` ) ( `TTYP` ) ( `STOB` )
-    ).
-
-    " Track current node keys at each level
-    DATA: lv_cur_author  TYPE author,
-          lv_cur_pkg     TYPE devclass,
-          lv_cur_folder  TYPE string,
-          lv_cur_type    TYPE trobjtype,
-          lv_author_key  TYPE lvc_nkey,
-          lv_pkg_key     TYPE lvc_nkey,
-          lv_folder_key  TYPE lvc_nkey,
-          lv_type_key    TYPE lvc_nkey,
-          ls_parent      LIKE LINE OF mt_objects,
-          ls_node_map    TYPE lty_node_map.
-
-    " Cached package descriptions
-    DATA: ls_pkg_desc TYPE zscort_s_object.
+    DATA: lv_cur_author TYPE author,
+          lv_cur_pkg    TYPE devclass,
+          lv_cur_type   TYPE trobjtype,
+          lv_author_key TYPE lvc_nkey,
+          lv_pkg_key    TYPE lvc_nkey,
+          lv_type_key   TYPE lvc_nkey,
+          ls_node_map   TYPE lty_node_map,
+          ls_node_info  TYPE lty_node_info,
+          ls_empty      TYPE zscort_s_object.
 
     TRY.
         LOOP AT mt_objects INTO DATA(ls_obj).
 
-          " ---------- Level 1: Owner ----------
+          " Level 1: Owner (root) — create new root node when author changes
           IF ls_obj-author <> lv_cur_author.
             lv_cur_author = ls_obj-author.
-            CLEAR: lv_cur_pkg, lv_cur_folder, lv_cur_type.
-            " All packages under this owner
+            CLEAR: lv_cur_pkg, lv_cur_type.
+
             DATA(lv_owner_pkg_cnt) = REDUCE i(
               INIT c = 0
-              FOR wa IN mt_objects WHERE ( author = ls_obj-author )
+              FOR w IN mt_objects WHERE ( author = ls_obj-author )
               NEXT c = c + 1 ).
 
-            CLEAR ls_parent.
-            ls_parent-author = ls_obj-author.
+            CLEAR ls_empty.
+            ls_empty-author = ls_obj-author.
             lo_node = lo_nodes->add_node(
               related_node = ''
               relationship  = if_salv_c_node_relation=>parent
-              data_row      = ls_parent
+              data_row      = ls_empty
             ).
             lo_node->set_text( |{ ls_obj-author } ({ lv_owner_pkg_cnt })| ).
+            lo_node->set_expander( abap_true ).
             lv_author_key = lo_node->get_key( ).
           ENDIF.
 
-          " ---------- Level 2: Package ----------
+          " Level 2: Package
           IF ls_obj-devclass <> lv_cur_pkg.
             lv_cur_pkg = ls_obj-devclass.
-            CLEAR: lv_cur_folder, lv_cur_type.
-            " All objects under this package
+            CLEAR lv_cur_type.
+
             DATA(lv_pkg_obj_cnt) = REDUCE i(
               INIT c = 0
-              FOR wa IN mt_objects
+              FOR w IN mt_objects
               WHERE ( author = lv_cur_author AND devclass = ls_obj-devclass )
               NEXT c = c + 1 ).
 
             " Fetch package description from TDEVC
-            DATA(lv_pkg_desc) = VALUE string( ).
-            SELECT SINGLE descript FROM tdevc
-              INTO @DATA(lv_tdevc_desc)
+            DATA lv_tdevc_desc TYPE tdevc-ctext.
+            DATA lv_pkg_label TYPE string.
+            SELECT SINGLE ctext FROM tdevc
+              INTO @lv_tdevc_desc
               WHERE devclass = @ls_obj-devclass.
             IF sy-subrc = 0 AND lv_tdevc_desc IS NOT INITIAL.
-              lv_pkg_desc = | - { lv_tdevc_desc }|.
+              lv_pkg_label = |{ ls_obj-devclass } ({ lv_pkg_obj_cnt }) - { lv_tdevc_desc }|.
+            ELSE.
+              lv_pkg_label = |{ ls_obj-devclass } ({ lv_pkg_obj_cnt })|.
             ENDIF.
 
-            CLEAR ls_parent.
-            ls_parent-devclass = ls_obj-devclass.
+            CLEAR ls_empty.
+            ls_empty-devclass = ls_obj-devclass.
             lo_node = lo_nodes->add_node(
               related_node = lv_author_key
               relationship  = if_salv_c_node_relation=>last_child
-              data_row      = ls_parent
+              data_row      = ls_empty
             ).
-            lo_node->set_text( |{ ls_obj-devclass } ({ lv_pkg_obj_cnt }){ lv_pkg_desc }| ).
-            IF lv_pkg_desc IS NOT INITIAL.
-              lo_node->set_tooltip( CONV #( lv_pkg_desc ) ).
-            ENDIF.
+            lo_node->set_text( CONV lvc_value( lv_pkg_label ) ).
+            lo_node->set_expander( abap_true ).
             lv_pkg_key = lo_node->get_key( ).
           ENDIF.
 
-          " ---------- Level 3: Folder (Dictionary or Source Code Library) ----------
-          DATA(lv_folder) = COND string(
-            WHEN ls_obj-object IN VALUE string_table(
-              ( `TABL` ) ( `VIEW` ) ( `DTEL` ) ( `DOMA` )
-              ( `SHLP` ) ( `TTYP` ) ( `STOB` ) )
-            THEN `Dictionary`
-            ELSE `Source Code Library`
-          ).
-
-          IF lv_folder <> lv_cur_folder.
-            lv_cur_folder = lv_folder.
-            CLEAR lv_cur_type.
-            " Count objects in this folder under current package
-            IF lv_folder = `Dictionary`.
-              DATA(lv_folder_cnt) = REDUCE i(
-                INIT c = 0
-                FOR wa IN mt_objects
-                WHERE ( author = lv_cur_author
-                    AND devclass = lv_cur_pkg
-                    AND object IN lt_ddic_types )
-                NEXT c = c + 1 ).
-            ELSE.
-              lv_folder_cnt = REDUCE i(
-                INIT c = 0
-                FOR wa IN mt_objects
-                WHERE ( author = lv_cur_author
-                    AND devclass = lv_cur_pkg
-                    AND object NOT IN lt_ddic_types )
-                NEXT c = c + 1 ).
-            ENDIF.
-
-            CLEAR ls_parent.
-            lo_node = lo_nodes->add_node(
-              related_node = lv_pkg_key
-              relationship  = if_salv_c_node_relation=>last_child
-              data_row      = ls_parent
-            ).
-            lo_node->set_text( |{ lv_folder } ({ lv_folder_cnt })| ).
-            lv_folder_key = lo_node->get_key( ).
-          ENDIF.
-
-          " ---------- Level 4: Object Type ----------
+          " Level 3: Object Type (e.g. CLAS, PROG, TABL)
           IF ls_obj-object <> lv_cur_type.
             lv_cur_type = ls_obj-object.
-            " Count objects of this type under current package
+
             DATA(lv_type_cnt) = REDUCE i(
               INIT c = 0
-              FOR wa IN mt_objects
+              FOR w IN mt_objects
               WHERE ( author = lv_cur_author
                   AND devclass = lv_cur_pkg
                   AND object = ls_obj-object )
               NEXT c = c + 1 ).
 
-            CLEAR ls_parent.
-            ls_parent-object = ls_obj-object.
-            lo_node = lo_nodes->add_node(
-              related_node = lv_folder_key
-              relationship  = if_salv_c_node_relation=>last_child
-              data_row      = ls_parent
+            " Human-readable type label: e.g. "CLAS - ABAP Classes"
+            DATA lv_type_label TYPE string.
+            lv_type_label = SWITCH #(
+              ls_obj-object
+              WHEN 'CLAS' THEN |CLAS - ABAP Classes ({ lv_type_cnt })|
+              WHEN 'PROG' THEN |PROG - Programs/Reports ({ lv_type_cnt })|
+              WHEN 'TABL' THEN |TABL - Database Tables ({ lv_type_cnt })|
+              WHEN 'VIEW' THEN |VIEW - Views ({ lv_type_cnt })|
+              WHEN 'DTEL' THEN |DTEL - Data Elements ({ lv_type_cnt })|
+              WHEN 'DOMA' THEN |DOMA - Domains ({ lv_type_cnt })|
+              WHEN 'FUGR' THEN |FUGR - Function Groups ({ lv_type_cnt })|
+              WHEN 'FUNC' THEN |FUNC - Function Modules ({ lv_type_cnt })|
+              WHEN 'ENQU' THEN |ENQU - Lock Objects ({ lv_type_cnt })|
+              WHEN 'SHLP' THEN |SHLP - Search Helps ({ lv_type_cnt })|
+              WHEN 'TTYP' THEN |TTYP - Table Types ({ lv_type_cnt })|
+              WHEN 'STOB' THEN |STOB - Storage BOs ({ lv_type_cnt })|
+              WHEN 'TRAN' THEN |TRAN - Transactions ({ lv_type_cnt })|
+              WHEN 'IASC' THEN |IASC - Incl. ABAP Sources ({ lv_type_cnt })|
+              WHEN 'INTF' THEN |INTF - Interfaces ({ lv_type_cnt })|
+              WHEN 'MSAG' THEN |MSAG - Messages ({ lv_type_cnt })|
+              WHEN 'REPS' THEN |REPS - Include Programs ({ lv_type_cnt })|
+              WHEN 'DYNP' THEN |DYNP - Screens ({ lv_type_cnt })|
+              WHEN 'CUAD' THEN |CUAD - GUI Downloads ({ lv_type_cnt })|
+              WHEN 'DREF' THEN |DREF - Docu References ({ lv_type_cnt })|
+              WHEN 'XSLT' THEN |XSLT - XSL Transformations ({ lv_type_cnt })|
+              WHEN 'SMOD' THEN |SMOD - Enhancements ({ lv_type_cnt })|
+              WHEN 'SXSD' THEN |SXSD - BDS Schemas ({ lv_type_cnt })|
+              WHEN 'STCP' THEN |STCP - BDS Instances ({ lv_type_cnt })|
+              WHEN 'DOCV' THEN |DOCV - Documentation ({ lv_type_cnt })|
+              ELSE |{ ls_obj-object } ({ lv_type_cnt })|
             ).
-            lo_node->set_text( |{ ls_obj-object } ({ lv_type_cnt })| ).
+
+            CLEAR ls_empty.
+            ls_empty-object = ls_obj-object.
+            lo_node = lo_nodes->add_node(
+              related_node = lv_pkg_key
+              relationship  = if_salv_c_node_relation=>last_child
+              data_row      = ls_empty
+            ).
+            lo_node->set_text( CONV lvc_value( lv_type_label ) ).
+            lo_node->set_expander( abap_true ).
             lv_type_key = lo_node->get_key( ).
           ENDIF.
 
-          " ---------- Level 5: Object leaf ----------
+          " Level 4: Object leaf
           lo_node = lo_nodes->add_node(
             related_node = lv_type_key
             relationship  = if_salv_c_node_relation=>last_child
             data_row      = ls_obj
           ).
-          lo_node->set_text( ls_obj-obj_name ).
+          lo_node->set_text( CONV #( ls_obj-obj_name ) ).
 
-          " Leaf gets checkbox (editable)
+          " Leaf: editable checkbox
           lo_item = lo_node->get_hierarchy_item( ).
           lo_item->set_type( if_salv_c_item_type=>checkbox ).
           lo_item->set_editable( abap_true ).
 
+          CLEAR ls_node_map.
           ls_node_map-node_key = lo_node->get_key( ).
           ls_node_map-obj_name = ls_obj-obj_name.
           ls_node_map-obj_type = ls_obj-object.
           APPEND ls_node_map TO mt_node_keys.
 
+          " Store node info for context menu lookup
+          CLEAR ls_node_info.
+          ls_node_info-node_key = ls_node_map-node_key.
+          ls_node_info-level    = '4'.
+          ls_node_info-obj_name = ls_obj-obj_name.
+          ls_node_info-obj_type = ls_obj-object.
+          ls_node_info-devclass = ls_obj-devclass.
+          APPEND ls_node_info TO mt_node_info.
+
         ENDLOOP.
 
         lo_nodes->expand_all( ).
+
       CATCH cx_salv_not_found cx_salv_msg.
-        MESSAGE 'Tree node build failed - object list returned but tree could not render.' TYPE 'W'.
+        MESSAGE 'Tree node build failed.' TYPE 'W'.
         RETURN.
     ENDTRY.
 
-    " Register events
-    SET HANDLER me->on_double_click    FOR mo_tree->get_event( ).
-    SET HANDLER me->on_checkbox_change FOR mo_tree->get_event( ).
-    SET HANDLER me->on_user_command    FOR mo_tree->get_event( ).
+    " Register standard SALV event handlers
+    lo_evt = mo_tree->get_event( ).
+    SET HANDLER me->on_double_click         FOR lo_evt.
+    SET HANDLER me->on_checkbox_change      FOR lo_evt.
+    SET HANDLER me->on_toolbar_button_click FOR lo_evt.
+    SET HANDLER me->on_added_function       FOR lo_evt.
 
-    " Add custom toolbar buttons
-    TRY.
-        lo_funcs->add_function(
-          name     = 'CHG_OWNER'
-          icon     = '@IO@'
-          text     = 'Change Owner'
-          tooltip  = 'Change owner for selected object(s)'
-          position = if_salv_c_function_position=>right_of_salv_functions
-        ).
-      CATCH cx_salv_existing cx_salv_wrong_call cx_salv_method_not_supported.
-    ENDTRY.
+    " Context menu: downcast events to subclass (exposes protected CONTEXT_MENU)
+    CREATE OBJECT mo_evt_handler
+      EXPORTING
+        io_controller = me
+        io_tree        = mo_tree.
 
-    TRY.
-        lo_funcs->add_function(
-          name     = 'CHG_PKG'
-          icon     = '@BW@'
-          text     = 'Change Package'
-          tooltip  = 'Move selected object(s) to a different Development Package'
-          position = if_salv_c_function_position=>right_of_salv_functions
-        ).
-      CATCH cx_salv_existing cx_salv_wrong_call cx_salv_method_not_supported.
-    ENDTRY.
-
-    TRY.
-        lo_funcs->add_function(
-          name     = 'OPEN_SE80'
-          icon     = '@0Q@'
-          text     = 'Open in SE80'
-          tooltip  = 'Open selected object in SE80'
-          position = if_salv_c_function_position=>right_of_salv_functions
-        ).
-      CATCH cx_salv_existing cx_salv_wrong_call cx_salv_method_not_supported.
-    ENDTRY.
-
-    TRY.
-        lo_funcs->add_function(
-          name     = 'REFRESH'
-          icon     = '@3I@'
-          text     = 'Refresh'
-          tooltip  = 'Re-fetch and rebuild tree'
-          position = if_salv_c_function_position=>right_of_salv_functions
-        ).
-      CATCH cx_salv_existing cx_salv_wrong_call cx_salv_method_not_supported.
-    ENDTRY.
+    SET HANDLER mo_evt_handler->on_context_menu FOR mo_evt_handler.
 
     mo_tree->display( ).
   ENDMETHOD.
@@ -448,45 +490,44 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     DATA: ls_node TYPE lty_node_map,
           ls_obj  TYPE zscort_s_object.
 
-    " Only respond to clicks on OBJ_NAME or OBJECT columns (avoid spurious fires)
-    CHECK columnname = 'OBJ_NAME' OR columnname = 'OBJECT'.
+    " Only handle OBJ_NAME column on object leaves
+    CHECK columnname = 'OBJ_NAME'.
 
-    " Find which node was clicked via internal map (node_key is unique per row)
+    " Find node in our map (only object leaves are registered)
     READ TABLE mt_node_keys INTO ls_node
       WITH KEY node_key = CONV lvc_nkey( node_key ).
     IF sy-subrc <> 0.
-      " Either parent (group header) or not in map - silent return
       RETURN.
     ENDIF.
 
-    " Look up full object data
+    " Load full object data
     READ TABLE mt_objects INTO ls_obj
       WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
-    " Open in SE80/RS_TOOL_ACCESS - this is the user's expected double-click behavior
+    " Open object in SE38/SE24/SE11... via RS_TOOL_ACCESS
     CALL FUNCTION 'RS_TOOL_ACCESS'
       EXPORTING
-        operation    = 'SHOW'
-        object_name  = ls_obj-obj_name
-        object_type  = ls_obj-object
-        devclass     = ls_obj-devclass
+        operation   = 'SHOW'
+        object_name = ls_obj-obj_name
+        object_type = ls_obj-object
+        devclass    = ls_obj-devclass
       EXCEPTIONS
         not_executed = 1
         OTHERS       = 2.
     IF sy-subrc <> 0.
-      " Fallback to plain SE80
       CALL TRANSACTION 'SE80'.
     ENDIF.
   ENDMETHOD.
 
   METHOD on_checkbox_change.
-    DATA: lv_k    TYPE lvc_nkey,
-          ls_key  TYPE lty_node_map.
+    DATA: lv_k   TYPE lvc_nkey,
+          ls_key TYPE lty_node_map.
 
     lv_k = CONV lvc_nkey( node_key ).
+
     IF checked = abap_true.
       READ TABLE mt_node_keys INTO ls_key WITH KEY node_key = lv_k.
       IF sy-subrc = 0.
@@ -500,217 +541,86 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD collect_checked_objects.
-    LOOP AT mt_checked INTO DATA(ls_checked).
-      READ TABLE mt_objects INTO DATA(ls_obj)
-        WITH KEY obj_name = ls_checked-obj_name object = ls_checked-obj_type.
-      IF sy-subrc = 0.
-        APPEND ls_obj TO rt_objects.
-      ENDIF.
-    ENDLOOP.
-  ENDMETHOD.
+  METHOD on_toolbar_button_click.
+    DATA: ls_node TYPE lty_node_map,
+          ls_obj  TYPE zscort_s_object.
 
-  METHOD do_change_owner.
-    " is_object: single-object entry point (popup with prefilled value)
-    " ct_objects: list to update; updated with new AUTHOR
-    DATA: lv_ok_count  TYPE i,
-          lv_err_count TYPE i,
-          lv_err_log   TYPE string,
-          lv_obj       TYPE zscort_s_object.
-
-    " If is_object supplied but ct_objects empty: treat as single-object mode
-    IF ct_objects IS INITIAL AND is_object IS NOT INITIAL.
-      lv_obj = is_object.
-      APPEND lv_obj TO ct_objects.
-    ENDIF.
-
-    LOOP AT ct_objects INTO lv_obj.
-      TRY.
-          DATA(lv_success) = mo_repo->change_object_owner(
-            iv_obj_name  = lv_obj-obj_name
-            iv_obj_type  = lv_obj-object
-            iv_new_owner = iv_new_owner
-          ).
-          IF lv_success = abap_true.
-            ADD 1 TO lv_ok_count.
-            lv_obj-author = iv_new_owner.
-            MODIFY ct_objects FROM lv_obj.
-          ELSE.
-            ADD 1 TO lv_err_count.
-            lv_err_log = |{ lv_err_log } { lv_obj-object }-{ lv_obj-obj_name };|.
-          ENDIF.
-        CATCH cx_root.
-          ADD 1 TO lv_err_count.
-      ENDTRY.
-    ENDLOOP.
-
-    IF lv_ok_count > 0.
-      MESSAGE |Owner changed for { lv_ok_count } object(s) successfully.| TYPE 'S'.
-    ENDIF.
-    IF lv_err_count > 0.
-      MESSAGE |{ lv_err_count } object(s) failed: { lv_err_log }| TYPE 'W'.
-    ENDIF.
-    IF lv_ok_count = 0 AND lv_err_count = 0.
-      MESSAGE 'No object updated.' TYPE 'S'.
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD do_change_package.
-    DATA: lv_ok_count  TYPE i,
-          lv_err_count TYPE i,
-          lv_err_log   TYPE string,
-          lv_obj       TYPE zscort_s_object.
-
-    IF ct_objects IS INITIAL AND is_object IS NOT INITIAL.
-      lv_obj = is_object.
-      APPEND lv_obj TO ct_objects.
-    ENDIF.
-
-    LOOP AT ct_objects INTO lv_obj.
-      TRY.
-          DATA(lv_success) = mo_repo->change_object_package(
-            iv_obj_name     = lv_obj-obj_name
-            iv_obj_type     = lv_obj-object
-            iv_new_devclass = iv_new_package
-          ).
-          IF lv_success = abap_true.
-            ADD 1 TO lv_ok_count.
-            lv_obj-devclass = iv_new_package.
-            MODIFY ct_objects FROM lv_obj.
-          ELSE.
-            ADD 1 TO lv_err_count.
-            lv_err_log = |{ lv_err_log } { lv_obj-object }-{ lv_obj-obj_name };|.
-          ENDIF.
-        CATCH cx_root.
-          ADD 1 TO lv_err_count.
-      ENDTRY.
-    ENDLOOP.
-
-    IF lv_ok_count > 0.
-      MESSAGE |Package changed for { lv_ok_count } object(s) successfully.| TYPE 'S'.
-    ENDIF.
-    IF lv_err_count > 0.
-      MESSAGE |{ lv_err_count } object(s) failed: { lv_err_log }| TYPE 'W'.
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD do_change_owner_mass.
-    DATA: lt_objects TYPE zscort_t_objects.
-
-    lt_objects = collect_checked_objects( ).
-
-    IF lt_objects IS INITIAL.
-      MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
-      RETURN.
-    ENDIF.
-
-    " Determine initial value (existing owner)
-    DATA(lv_initial) = VALUE author( ).
-    READ TABLE lt_objects INTO DATA(ls_first) INDEX 1.
+    " Map node_key to object
+    READ TABLE mt_node_keys INTO ls_node
+      WITH KEY node_key = CONV lvc_nkey( node_key ).
     IF sy-subrc = 0.
-      lv_initial = ls_first-author.
+      READ TABLE mt_objects INTO ls_obj
+        WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
     ENDIF.
 
-    DATA: lt_fields  TYPE TABLE OF sval,
-          ls_field   TYPE sval,
-          lv_retcode TYPE char1,
-          lv_owner   TYPE author.
+    CASE e_salv_function.
 
-    ls_field-tabname   = 'TADIR'.
-    ls_field-fieldname = 'AUTHOR'.
-    ls_field-fieldtext = 'New Owner (user ID)'.
-    ls_field-value     = lv_initial.
-    APPEND ls_field TO lt_fields.
+      WHEN 'REFRESH'.
+        LEAVE TO TRANSACTION sy-tcode.
 
-    CALL FUNCTION 'POPUP_GET_VALUES'
-      EXPORTING
-        popup_title = |Change Owner for { lines( lt_objects ) } object(s)|
-      IMPORTING
-        returncode  = lv_retcode
-      TABLES
-        fields      = lt_fields
-      EXCEPTIONS
-        OTHERS      = 1.
+      WHEN 'VIEW_DETAIL'.
+        IF ls_obj IS NOT INITIAL.
+          show_detail_popup( ls_obj ).
+        ENDIF.
 
-    IF sy-subrc <> 0 OR lv_retcode = 'A'.
-      RETURN.
-    ENDIF.
+      WHEN 'OPEN_SE80'.
+        IF ls_obj IS NOT INITIAL.
+          CALL FUNCTION 'RS_TOOL_ACCESS'
+            EXPORTING operation   = 'SHOW'
+                      object_name = ls_obj-obj_name
+                      object_type = ls_obj-object
+                      devclass    = ls_obj-devclass
+            EXCEPTIONS not_executed = 1 OTHERS = 2.
+          IF sy-subrc <> 0.
+            CALL TRANSACTION 'SE80'.
+          ENDIF.
+        ENDIF.
 
-    READ TABLE lt_fields INTO ls_field WITH KEY fieldname = 'AUTHOR'.
-    lv_owner = ls_field-value.
+      WHEN 'CHG_OWNER_CTX' OR 'CHG_OWNER'.
+        IF ls_obj IS NOT INITIAL.
+          do_change_owner_single( ls_obj ).
+        ENDIF.
 
-    IF lv_owner IS INITIAL.
-      MESSAGE 'Owner cannot be empty.' TYPE 'S' DISPLAY LIKE 'W'.
-      RETURN.
-    ENDIF.
+      WHEN 'CHG_PKG_CTX' OR 'CHG_PKG'.
+        IF ls_obj IS NOT INITIAL.
+          do_change_package_single( ls_obj ).
+        ENDIF.
 
-    do_change_owner(
-      EXPORTING iv_new_owner = lv_owner
-      CHANGING  ct_objects  = lt_objects
-    ).
+      WHEN OTHERS.
+        " Fallback: use checked objects for mass operations
+        IF mt_checked IS NOT INITIAL.
+          READ TABLE mt_checked INTO DATA(ls_first) INDEX 1.
+          READ TABLE mt_objects INTO ls_obj
+            WITH KEY obj_name = ls_first-obj_name object = ls_first-obj_type.
+          CASE e_salv_function.
+            WHEN 'CHG_OWNER'.
+              do_change_owner_single( ls_obj ).
+            WHEN 'CHG_PKG'.
+              do_change_package_single( ls_obj ).
+            WHEN 'OPEN_SE80'.
+              CALL FUNCTION 'RS_TOOL_ACCESS'
+                EXPORTING operation   = 'SHOW'
+                          object_name = ls_obj-obj_name
+                          object_type = ls_obj-object
+                          devclass    = ls_obj-devclass
+                EXCEPTIONS not_executed = 1 OTHERS = 2.
+              IF sy-subrc <> 0.
+                CALL TRANSACTION 'SE80'.
+              ENDIF.
+          ENDCASE.
+        ELSE.
+          MESSAGE 'Please check an object first.' TYPE 'S' DISPLAY LIKE 'W'.
+        ENDIF.
 
-    " ALV Tree caches data per-node, mt_objects changes don't refresh UI
-    " → ask user to click REFRESH (or LEAVE TO TRANSACTION for clean rebuild)
-    MESSAGE 'Owner changed. Please click REFRESH (or F8) to reload tree with updated author.' TYPE 'S'.
+    ENDCASE.
   ENDMETHOD.
 
-  METHOD do_change_package_mass.
-    DATA: lt_objects TYPE zscort_t_objects.
-
-    lt_objects = collect_checked_objects( ).
-
-    IF lt_objects IS INITIAL.
-      MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
-      RETURN.
-    ENDIF.
-
-    DATA(lv_initial) = VALUE devclass( ).
-    READ TABLE lt_objects INTO DATA(ls_first) INDEX 1.
-    IF sy-subrc = 0.
-      lv_initial = ls_first-devclass.
-    ENDIF.
-
-    DATA: lt_fields  TYPE TABLE OF sval,
-          ls_field   TYPE sval,
-          lv_retcode TYPE char1,
-          lv_pkg     TYPE devclass.
-
-    ls_field-tabname   = 'TADIR'.
-    ls_field-fieldname = 'DEVCLASS'.
-    ls_field-fieldtext = 'New Package'.
-    ls_field-value     = lv_initial.
-    APPEND ls_field TO lt_fields.
-
-    CALL FUNCTION 'POPUP_GET_VALUES'
-      EXPORTING
-        popup_title = |Change Package for { lines( lt_objects ) } object(s)|
-      IMPORTING
-        returncode  = lv_retcode
-      TABLES
-        fields      = lt_fields
-      EXCEPTIONS
-        OTHERS      = 1.
-
-    IF sy-subrc <> 0 OR lv_retcode = 'A'.
-      RETURN.
-    ENDIF.
-
-    READ TABLE lt_fields INTO ls_field WITH KEY fieldname = 'DEVCLASS'.
-    lv_pkg = ls_field-value.
-
-    IF lv_pkg IS INITIAL.
-      MESSAGE 'Package cannot be empty.' TYPE 'S' DISPLAY LIKE 'W'.
-      RETURN.
-    ENDIF.
-
-    do_change_package(
-      EXPORTING iv_new_package = lv_pkg
-      CHANGING  ct_objects     = lt_objects
-    ).
-
-    " ALV Tree caches data per-node, mt_objects changes don't refresh UI
-    " → ask user to click REFRESH (or LEAVE TO TRANSACTION for clean rebuild)
-    MESSAGE 'Package changed. Please click REFRESH (or F8) to reload tree with updated package.' TYPE 'S'.
+  METHOD on_added_function.
+    " Toolbar buttons triggered via function key or menu
+    CASE e_salv_function.
+      WHEN 'REFRESH'.
+        LEAVE TO TRANSACTION sy-tcode.
+    ENDCASE.
   ENDMETHOD.
 
   METHOD show_detail_popup.
@@ -721,15 +631,33 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     DATA: lt_display TYPE TABLE OF lty_row,
           ls_row     TYPE lty_row,
           lo_popup   TYPE REF TO cl_salv_table,
-          lo_cols    TYPE REF TO cl_salv_columns.
+          lo_cols    TYPE REF TO cl_salv_columns,
+          lo_detail  TYPE zscort_s_obj_detail.
 
-    " Build display table
+    " Fetch extended detail from repository
+    mo_reader->get_object_detail(
+      EXPORTING iv_obj_name = is_object-obj_name
+                iv_obj_type = is_object-object
+      IMPORTING es_detail   = lo_detail
+    ).
+
+    " Build display rows
     ls_row-field_label = 'Object Name'. ls_row-field_value = is_object-obj_name.  APPEND ls_row TO lt_display.
-    ls_row-field_label = 'Object Type'. ls_row-field_value = is_object-object.    APPEND ls_row TO lt_display.
-    ls_row-field_label = 'Package'.     ls_row-field_value = is_object-devclass.  APPEND ls_row TO lt_display.
-    ls_row-field_label = 'Author'.      ls_row-field_value = is_object-author.    APPEND ls_row TO lt_display.
-    ls_row-field_label = 'Src System'.  ls_row-field_value = is_object-srcsystem. APPEND ls_row TO lt_display.
-    ls_row-field_label = 'Version'.     ls_row-field_value = is_object-versno.    APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Object Type'. ls_row-field_value = is_object-object.   APPEND ls_row TO lt_display.
+    IF lo_detail-object_type_desc IS NOT INITIAL.
+      ls_row-field_label = 'Type Description'. ls_row-field_value = lo_detail-object_type_desc. APPEND ls_row TO lt_display.
+    ENDIF.
+    ls_row-field_label = 'Package'.       ls_row-field_value = is_object-devclass.  APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Author'.        ls_row-field_value = is_object-author.    APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Src System'.     ls_row-field_value = is_object-srcsystem. APPEND ls_row TO lt_display.
+    ls_row-field_label = 'Version'.       ls_row-field_value = is_object-versno.    APPEND ls_row TO lt_display.
+    IF lo_detail-created_date IS NOT INITIAL.
+      ls_row-field_label = 'Created On'.   ls_row-field_value = |{ lo_detail-created_date DATE = USER }|.
+      APPEND ls_row TO lt_display.
+    ENDIF.
+    IF lo_detail-description IS NOT INITIAL.
+      ls_row-field_label = 'Description'. ls_row-field_value = lo_detail-description. APPEND ls_row TO lt_display.
+    ENDIF.
 
     TRY.
         cl_salv_table=>factory(
@@ -737,71 +665,112 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
           CHANGING  t_table      = lt_display
         ).
       CATCH cx_salv_msg.
-        " Skip popup if ALV factory fails - silent fall-through
         RETURN.
     ENDTRY.
 
-    lo_popup->get_display_settings( )->set_list_header( |SCORT Detail: { is_object-obj_name }| ).
+    lo_popup->get_display_settings( )->set_list_header(
+      |Object Detail: { is_object-obj_name }|
+    ).
     lo_popup->get_functions( )->set_all( abap_false ).
+
     lo_cols = lo_popup->get_columns( ).
     lo_cols->set_optimize( abap_true ).
     TRY.
         lo_cols->get_column( 'FIELD_LABEL' )->set_medium_text( 'Field' ).
         lo_cols->get_column( 'FIELD_VALUE' )->set_medium_text( 'Value' ).
       CATCH cx_salv_not_found.
-        " column not found - ignore
     ENDTRY.
 
     lo_popup->display( ).
   ENDMETHOD.
 
-  METHOD on_user_command.
-    DATA: ls_obj TYPE zscort_s_object.
+  METHOD do_change_owner_single.
+    DATA: lt_fields  TYPE TABLE OF sval,
+          ls_field   TYPE sval,
+          lv_retcode TYPE char1,
+          lv_owner   TYPE author.
 
-    CASE e_salv_function.
+    ls_field-tabname   = 'TADIR'.
+    ls_field-fieldname = 'AUTHOR'.
+    ls_field-fieldtext = 'New Owner (user ID)'.
+    ls_field-value     = is_object-author.
+    APPEND ls_field TO lt_fields.
 
-      WHEN 'REFRESH'.
-        " LEAVE TO TRANSACTION: clean restart without nested call stack
-        LEAVE TO TRANSACTION sy-tcode.
+    CALL FUNCTION 'POPUP_GET_VALUES'
+      EXPORTING popup_title = |Change Owner: { is_object-obj_name }|
+      IMPORTING returncode = lv_retcode TABLES fields = lt_fields EXCEPTIONS OTHERS = 1.
 
-      WHEN 'CHG_OWNER'.
-        do_change_owner_mass( ).
+    IF sy-subrc <> 0 OR lv_retcode = 'A'. RETURN. ENDIF.
 
-      WHEN 'CHG_PKG'.
-        do_change_package_mass( ).
+    READ TABLE lt_fields INTO ls_field WITH KEY fieldname = 'AUTHOR'.
+    lv_owner = ls_field-value.
 
-      WHEN 'OPEN_SE80'.
-        DATA(lt_checked_obj) = collect_checked_objects( ).
-        IF lt_checked_obj IS INITIAL.
-          MESSAGE 'Please check at least one object first (click the checkbox in the row).' TYPE 'S' DISPLAY LIKE 'W'.
-          RETURN.
-        ENDIF.
+    IF lv_owner IS INITIAL.
+      MESSAGE 'Owner cannot be empty.' TYPE 'S' DISPLAY LIKE 'W'. RETURN.
+    ENDIF.
 
-        READ TABLE lt_checked_obj INTO ls_obj INDEX 1.
+    TRY.
+        mo_mutator->change_object_owner(
+          iv_obj_name  = is_object-obj_name
+          iv_obj_type  = is_object-object
+          iv_new_owner = lv_owner ).
+        MESSAGE |Owner changed for { is_object-obj_name }. Please REFRESH (F8) to see updates.| TYPE 'S'.
+      CATCH zcx_scort_exception INTO DATA(lo_ex_own).
+        MESSAGE lo_ex_own->mv_error_text TYPE 'S' DISPLAY LIKE 'E'.
+    ENDTRY.
+  ENDMETHOD.
 
-        CALL FUNCTION 'RS_TOOL_ACCESS'
-          EXPORTING
-            operation    = 'SHOW'
-            object_name  = ls_obj-obj_name
-            object_type  = ls_obj-object
-            devclass     = ls_obj-devclass
-          EXCEPTIONS
-            not_executed = 1
-            OTHERS       = 2.
-        IF sy-subrc <> 0.
-          CALL TRANSACTION 'SE80'.
-        ENDIF.
+  METHOD do_change_package_single.
+    DATA: lt_fields  TYPE TABLE OF sval,
+          ls_field   TYPE sval,
+          lv_retcode TYPE char1,
+          lv_pkg     TYPE devclass.
 
-      WHEN OTHERS.
-        " unknown
-    ENDCASE.
+    ls_field-tabname   = 'TADIR'.
+    ls_field-fieldname = 'DEVCLASS'.
+    ls_field-fieldtext = 'New Package (DEVCLASS)'.
+    ls_field-value     = is_object-devclass.
+    APPEND ls_field TO lt_fields.
+
+    CALL FUNCTION 'POPUP_GET_VALUES'
+      EXPORTING popup_title = |Change Package: { is_object-obj_name }|
+      IMPORTING returncode = lv_retcode TABLES fields = lt_fields EXCEPTIONS OTHERS = 1.
+
+    IF sy-subrc <> 0 OR lv_retcode = 'A'. RETURN. ENDIF.
+
+    READ TABLE lt_fields INTO ls_field WITH KEY fieldname = 'DEVCLASS'.
+    lv_pkg = ls_field-value.
+
+    IF lv_pkg IS INITIAL.
+      MESSAGE 'Package cannot be empty.' TYPE 'S' DISPLAY LIKE 'W'. RETURN.
+    ENDIF.
+
+    TRY.
+        mo_mutator->change_object_package(
+          iv_obj_name     = is_object-obj_name
+          iv_obj_type     = is_object-object
+          iv_new_devclass = lv_pkg ).
+        MESSAGE |Package changed for { is_object-obj_name }. Please REFRESH (F8) to see updates.| TYPE 'S'.
+      CATCH zcx_scort_exception INTO DATA(lo_ex_pkg).
+        MESSAGE lo_ex_pkg->mv_error_text TYPE 'S' DISPLAY LIKE 'E'.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD collect_checked_objects.
+    LOOP AT mt_checked INTO DATA(ls_checked).
+      READ TABLE mt_objects INTO DATA(ls_obj)
+        WITH KEY obj_name = ls_checked-obj_name object = ls_checked-obj_type.
+      IF sy-subrc = 0.
+        APPEND ls_obj TO rt_objects.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.
 
-"*&---------------------------------------------------------------------*
-"*& TEXT SYMBOLS
-"*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& TEXT SYMBOLS
+*&---------------------------------------------------------------------*
 " TEXT-b01 = 'Owner (Person Responsible)'.
 " TEXT-b02 = 'Package (optional)'.
 " TEXT-b03 = 'Object Name Filter'.

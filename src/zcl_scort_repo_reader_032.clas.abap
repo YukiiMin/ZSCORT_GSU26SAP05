@@ -1,100 +1,24 @@
-class ZCL_SCORT_REPOSITORY_032 definition
+class ZCL_SCORT_REPO_READER_032 definition
   public
   final
-  create public .
+  create public
+  global friends ZIF_SCORT_REPO_READER.
 
 public section.
 
-  types:
-    " Range table types
-    tt_obj_range   TYPE RANGE OF sobj_name .
-  types:
-    tt_type_range  TYPE RANGE OF trobjtype .
-  types:
-    tt_pkg_range   TYPE RANGE OF devclass .
-  types:
-    tt_auth_range  TYPE RANGE OF author .
-  types:
-    tt_trkorr_rng  TYPE RANGE OF trkorr .
-  types:
-    tt_as4user_rng TYPE RANGE OF as4user .
+  interfaces ZIF_SCORT_REPO_READER.
 
-    " 3. Methods Definitions
-  methods GET_OBJECTS
-    importing
-      !IT_OBJ_NAME type TT_OBJ_RANGE optional
-      !IT_OBJ_TYPE type TT_TYPE_RANGE optional
-      !IT_DEVCLASS type TT_PKG_RANGE optional
-      !IT_AUTHOR type TT_AUTH_RANGE optional
-    exporting
-      !ET_OBJECTS type ZSCORT_T_OBJECTS .
-  methods GET_STATISTICS
-    importing
-      !IT_DEVCLASS type TT_PKG_RANGE optional
-      !IT_AUTHOR type TT_AUTH_RANGE optional
-    exporting
-      !ET_STATISTICS type ZSCORT_T_STATISTICS .
-  methods GET_OBJECT_DETAIL
-    importing
-      !IV_OBJ_NAME type SOBJ_NAME
-      !IV_OBJ_TYPE type TROBJTYPE
-    exporting
-      !ES_DETAIL type ZSCORT_S_OBJ_DETAIL .
-  methods GET_OBJECTS_BY_TR
-    importing
-      !IT_TR_NUMBER type TT_TRKORR_RNG
-      !IT_TR_OWNER type TT_AS4USER_RNG
-      !IT_OBJ_TYPE type TT_TYPE_RANGE
-    exporting
-      !ET_TR_OBJECTS type ZSCORT_T_TR_OBJECTS .
-  methods GET_PACKAGE_TREE
-    importing
-      !IV_DEVCLASS type DEVCLASS
-    exporting
-      !ET_OBJECTS type ZSCORT_T_OBJECTS .
-  methods GET_OBJECTS_BY_TYPES
-    importing
-      !IT_DEVCLASS type TT_PKG_RANGE
-      !IT_OBJ_TYPE type TT_TYPE_RANGE
-      !IT_AUTHOR   type TT_AUTH_RANGE optional
-    exporting
-      !ET_OBJECTS type ZSCORT_T_OBJECTS .
-  methods GET_OBJECTS_ALL_TYPES
-    importing
-      !IT_DEVCLASS type TT_PKG_RANGE optional
-      !IT_AUTHOR   type TT_AUTH_RANGE optional
-      !IT_OBJ_NAME type TT_OBJ_RANGE optional
-    exporting
-      !ET_OBJECTS type ZSCORT_T_OBJECTS .
-  methods CHANGE_OBJECT_PACKAGE
-    importing
-      !IV_OBJ_NAME type SOBJ_NAME
-      !IV_OBJ_TYPE type TROBJTYPE
-      !IV_NEW_DEVCLASS type DEVCLASS
-    returning
-      VALUE(RV_SUCCESS) type ABAP_BOOL .
-  methods CHANGE_OBJECT_OWNER
-    importing
-      !IV_OBJ_NAME type SOBJ_NAME
-      !IV_OBJ_TYPE type TROBJTYPE
-      !IV_NEW_OWNER type AUTHOR
-    returning
-      VALUE(RV_SUCCESS) type ABAP_BOOL .
-  PROTECTED SECTION.
+protected section.
+private section.
 
-  PRIVATE SECTION.
-
-ENDCLASS.
+endclass.
 
 
 
-CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
+CLASS ZCL_SCORT_REPO_READER_032 IMPLEMENTATION.
 
 
-  METHOD get_objects.
-*--------------------------------------------------------------------*
-* SCORT: Get list of Repository Objects from TADIR
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_objects.
     CLEAR et_objects.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
@@ -119,14 +43,10 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
       ) ).
       SORT et_objects BY object obj_name.
     ENDIF.
-
   ENDMETHOD.
 
 
-  METHOD get_object_detail.
-*--------------------------------------------------------------------*
-* SCORT: Get detailed information of a specific Repository Object
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_object_detail.
     CLEAR es_detail.
 
     SELECT SINGLE obj_name, object, devclass, author,
@@ -207,16 +127,11 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_statistics.
-*--------------------------------------------------------------------*
-* SCORT: Get count of objects grouped by type
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_statistics.
     CLEAR et_statistics.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
 
-    " Aggregate query — INTO CORRESPONDING không hỗ trợ GROUP BY
-    " → dùng inline @DATA rồi map thủ công
     SELECT object,
            COUNT(*) AS obj_count
       FROM tadir
@@ -242,109 +157,7 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD change_object_owner.
-*--------------------------------------------------------------------*
-* SCORT: Đổi owner/author của object trong TADIR
-*--------------------------------------------------------------------*
-    rv_success = abap_false.
-
-    IF iv_new_owner IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    " Validate — user mới phải tồn tại
-    SELECT SINGLE bname FROM usr02
-      INTO @DATA(lv_user)
-      WHERE bname = @iv_new_owner.
-
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    SELECT SINGLE author
-      FROM tadir
-      INTO @DATA(lv_current_owner)
-      WHERE obj_name = @iv_obj_name
-        AND object   = @iv_obj_type.
-
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    IF lv_current_owner = iv_new_owner.
-      rv_success = abap_true.
-      RETURN.
-    ENDIF.
-
-    UPDATE tadir
-      SET author = @iv_new_owner
-      WHERE obj_name = @iv_obj_name
-        AND object   = @iv_obj_type.
-
-    IF sy-subrc = 0.
-      COMMIT WORK AND WAIT.
-      rv_success = abap_true.
-    ELSE.
-      ROLLBACK WORK.
-    ENDIF.
-
-  ENDMETHOD.
-
-
-  METHOD change_object_package.
-*--------------------------------------------------------------------*
-* SCORT: Chuyển object sang package (DEVCLASS) khác
-*--------------------------------------------------------------------*
-    rv_success = abap_false.
-
-    IF iv_new_devclass IS INITIAL.
-      RETURN.
-    ENDIF.
-
-    " Validate — package đích phải tồn tại
-    SELECT SINGLE devclass FROM tdevc
-      INTO @DATA(lv_pkg)
-      WHERE devclass = @iv_new_devclass.
-
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    " Validate — object phải tồn tại trong TADIR
-    SELECT SINGLE devclass
-      FROM tadir
-      INTO @DATA(lv_current_pkg)
-      WHERE obj_name = @iv_obj_name
-        AND object   = @iv_obj_type.
-
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-
-    IF lv_current_pkg = iv_new_devclass.
-      rv_success = abap_true.
-      RETURN.
-    ENDIF.
-
-    UPDATE tadir
-      SET devclass = @iv_new_devclass
-      WHERE obj_name = @iv_obj_name
-        AND object   = @iv_obj_type.
-
-    IF sy-subrc = 0.
-      COMMIT WORK AND WAIT.
-      rv_success = abap_true.
-    ELSE.
-      ROLLBACK WORK.
-    ENDIF.
-
-  ENDMETHOD.
-
-
-  METHOD get_objects_by_tr.
-*--------------------------------------------------------------------*
-* SCORT: Find Repository Objects via Transport Request (E070 + E071 join)
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_objects_by_tr.
     CLEAR et_tr_objects.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
@@ -354,7 +167,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
       ELSE it_obj_type
     ).
 
-    " ⚠️ Khai báo explicit structure vì inline @DATA với JOIN + AS alias không work
     TYPES: BEGIN OF ty_tr_raw,
              trkorr    TYPE e071-trkorr,
              pgmid     TYPE e071-pgmid,
@@ -368,8 +180,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
     DATA lt_raw TYPE STANDARD TABLE OF ty_tr_raw.
     DATA ls_raw TYPE ty_tr_raw.
 
-    " ⚠️ E07T của bạn không có cột AS4POS (chỉ có TRKORR + LANGU + AS4TEXT)
-    " → bỏ filter AS4POS, chỉ join theo (TRKORR, LANGU)
     SELECT DISTINCT
            e071~trkorr,
            e071~pgmid,
@@ -392,7 +202,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Khai báo ls_out trước vòng lặp
     DATA ls_out TYPE zscort_s_tr_object.
 
     LOOP AT lt_raw INTO ls_raw.
@@ -413,14 +222,10 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
       APPEND ls_out TO et_tr_objects.
     ENDLOOP.
-
   ENDMETHOD.
 
 
-  METHOD get_package_tree.
-*--------------------------------------------------------------------*
-* SCORT: Lấy tất cả objects trong một package (dùng cho Package Explorer)
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_package_tree.
     CLEAR et_objects.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
@@ -442,26 +247,18 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
         versno    = ls-versid
       ) ).
     ENDIF.
-
   ENDMETHOD.
 
 
-  METHOD get_objects_by_types.
-*--------------------------------------------------------------------*
-* SCORT: Get objects by package range + object-type range
-*        Used by Package Explorer with user-selected types
-*        If it_obj_type is empty → match all valid types (full TADIR scan)
-*        If package range is empty but owner range is supplied → query by owner instead
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_objects_by_types.
     CLEAR et_objects.
 
-    " Fallback: empty type range = match all valid types
     DATA(lt_final_types) = COND #(
-      WHEN it_obj_type IS INITIAL THEN zcl_scort_constants=>get_valid_types( )
-      ELSE it_obj_type
+      WHEN it_obj_type IS INITIAL
+        THEN zcl_scort_constants=>get_valid_types( )
+        ELSE it_obj_type
     ).
 
-    " Explicit struct + DATA to avoid duplicate inline @DATA() across IF/ELSE branches
     TYPES: BEGIN OF ty_tadir,
              obj_name  TYPE tadir-obj_name,
              object    TYPE tadir-object,
@@ -472,8 +269,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
            END OF ty_tadir.
     DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
 
-    " Package is optional: if no package is selected, fall back to owner filter.
-    " Do NOT force devclass filter when it_devclass is empty.
     IF it_devclass IS NOT INITIAL.
       IF it_author IS NOT INITIAL.
         SELECT obj_name, object, devclass, author, srcsystem, versid
@@ -518,16 +313,10 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
         versno    = ls-versid
       ) ).
     ENDIF.
-
   ENDMETHOD.
 
 
-  METHOD get_objects_all_types.
-*--------------------------------------------------------------------*
-* SCORT: Get all objects from TADIR — no object type restriction
-*        Supports optional filters: package, owner, object name
-*        Used by Repository Explorer when no type filter is needed
-*--------------------------------------------------------------------*
+  METHOD zif_scort_repo_reader~get_objects_all_types.
     CLEAR et_objects.
 
     TYPES: BEGIN OF ty_tadir,
@@ -540,7 +329,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
            END OF ty_tadir.
     DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
 
-    " 4-branch matrix: (devclass empty?) x (author empty?) x (obj_name empty?)
     IF it_devclass IS NOT INITIAL.
       IF it_author IS NOT INITIAL.
         IF it_obj_name IS NOT INITIAL.
@@ -617,6 +405,6 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
         versno    = ls-versid
       ) ).
     ENDIF.
-
   ENDMETHOD.
+
 ENDCLASS.

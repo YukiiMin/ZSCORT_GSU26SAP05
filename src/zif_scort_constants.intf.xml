@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_INTF" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEointerf>
+    <CLSNAME>ZIF_SCORT_CONSTANTS</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Shared Constants and Object Type Labels (Interface)</DESCRIPT>
+    <EXPOSURE>2</EXPOSURE>
+    <STATE>1</STATE>
+    <UNICODE>X</UNICODE>
+   </VSEointerf>
+   <DESCRIPTIONS>
+    <SEOINTERFTX>
+     <CMPNAME>GET_OBJECT_LABEL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get human-readable label for object type</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GET_VALID_TYPES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get list of valid object types</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_PROG</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Program</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_CLAS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: ABAP Class</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_TABL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Database Table</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_DOMA</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Domain</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_DTEL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Data Element</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_FUGR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Function Group</DESCRIPT>
+    </SEOINTERFTX>
+    <SEOINTERFTX>
+     <CMPNAME>GC_OBJ_TRAN</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Object type: Transaction</DESCRIPT>
+    </SEOINTERFTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_SCORT_REPO_READER_032</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>SCORT: Repository Query Operations (CQRS - Read)</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get list of repository objects from TADIR</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_STATISTICS</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get object count grouped by type</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECT_DETAIL</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get detailed info of one repository object</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS_BY_TR</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Find repository objects via Transport Request</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_PACKAGE_TREE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get all objects in a development package</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS_BY_TYPES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get objects filtered by package range and object types</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_OBJECTS_ALL_TYPES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Get all objects from TADIR with optional filters</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

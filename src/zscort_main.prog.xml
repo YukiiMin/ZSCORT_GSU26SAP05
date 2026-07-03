@@ -20,7 +20,7 @@
     <item>
      <ID>I</ID>
      <KEY>B02</KEY>
-     <ENTRY>Search Transport Requet</ENTRY>
+     <ENTRY>Search Transport Request</ENTRY>
      <LENGTH>25</LENGTH>
     </item>
     <item>
@@ -32,12 +32,12 @@
     <item>
      <ID>I</ID>
      <KEY>C01</KEY>
-     <ENTRY>Tip: Fill Block 2 for TR search.</ENTRY>
+     <ENTRY>Fill Block 2 to search by Transport Request.</ENTRY>
      <LENGTH>64</LENGTH>
     </item>
     <item>
      <ID>R</ID>
-     <ENTRY>SCORT - Repository Object Manager</ENTRY>
+     <ENTRY>SCORT - Repository Object Manager (v3)</ENTRY>
      <LENGTH>33</LENGTH>
     </item>
     <item>
