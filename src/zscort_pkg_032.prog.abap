@@ -1,4 +1,4 @@
-*&---------------------------------------------------------------------*
+﻿*&---------------------------------------------------------------------*
 *& Report : ZSCORT_PKG_032
 *& Title  : SCORT - Repository Explorer (ADT-style tree)
 *& Author : DEV-032 | Package: ZSCORT_GSU26SAP05
@@ -17,10 +17,7 @@
 REPORT zscort_pkg_032
     NO STANDARD PAGE HEADING.
 
-*&=====================================================================*
 *& SECTION 1: SELECTION SCREEN
-*&=====================================================================*
-
 DATA: gv_author TYPE author.
 
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-b01.
@@ -41,28 +38,6 @@ SELECTION-SCREEN END OF BLOCK b3.
 
 SELECTION-SCREEN COMMENT /1(79) TEXT-c01.
 
-*&=====================================================================*
-*& SECTION 2: LOCAL CLASS - EVENT HANDLER (Inherit to expose protected CONTEXT_MENU)
-*&=====================================================================*
-CLASS lcl_pkg_controller DEFINITION DEFERRED.
-CLASS lcl_salv_event_handler DEFINITION INHERITING FROM cl_salv_events_tree.
-  PUBLIC SECTION.
-    METHODS:
-      constructor
-        IMPORTING
-          io_controller TYPE REF TO lcl_pkg_controller,
-          io_tree        TYPE REF TO cl_salv_tree,
-      on_context_menu
-        FOR EVENT context_menu
-        IMPORTING e_object.
-  PRIVATE SECTION.
-    DATA: mo_controller TYPE REF TO lcl_pkg_controller,
-          mo_tree       TYPE REF TO cl_salv_tree.
-ENDCLASS.
-
-*&=====================================================================*
-*& SECTION 3: GLOBAL TYPES
-*&=====================================================================*
 TYPES:
   BEGIN OF lty_node_info,
     node_key TYPE lvc_nkey,
@@ -81,7 +56,7 @@ TYPES:
   tt_node_map TYPE TABLE OF lty_node_map.
 
 *&=====================================================================*
-*& SECTION 4: LOCAL CLASS DEFINITION - Controller
+*& SECTION 2: LOCAL CLASS DEFINITION - Controller
 *&=====================================================================*
 CLASS lcl_pkg_controller DEFINITION FINAL.
   PUBLIC SECTION.
@@ -95,9 +70,6 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       on_checkbox_change
         FOR EVENT checkbox_change OF cl_salv_events_tree
         IMPORTING node_key checked,
-      on_toolbar_button_click
-        FOR EVENT toolbar_button_click OF cl_salv_events_tree
-        IMPORTING node_key e_salv_function,
       on_added_function
         FOR EVENT added_function OF cl_salv_events_tree
         IMPORTING e_salv_function.
@@ -108,7 +80,6 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
       mo_reader     TYPE REF TO zif_scort_repo_reader,
       mo_mutator    TYPE REF TO zif_scort_repo_mutator,
       mo_tree        TYPE REF TO cl_salv_tree,
-      mo_evt_handler TYPE REF TO lcl_salv_event_handler,
       mt_objects     TYPE zscort_t_objects,
       mt_node_keys   TYPE tt_node_map,
       mt_node_info   TYPE tt_node_info,
@@ -129,12 +100,12 @@ CLASS lcl_pkg_controller DEFINITION FINAL.
 ENDCLASS.
 
 *&=====================================================================*
-*& SECTION 5: GLOBAL VARIABLE
+*& SECTION 3: GLOBAL VARIABLE
 *&=====================================================================*
 DATA: go_ctrl TYPE REF TO lcl_pkg_controller.
 
 *&=====================================================================*
-*& SECTION 6: SAP EVENTS
+*& SECTION 4: SAP EVENTS
 *&=====================================================================*
 INITIALIZATION.
   CREATE OBJECT go_ctrl.
@@ -144,77 +115,14 @@ START-OF-SELECTION.
   go_ctrl->run( ).
 
 *&=====================================================================*
-*& SECTION 7: CLASS IMPLEMENTATION
+*& SECTION 5: CLASS IMPLEMENTATION
 *&=====================================================================*
-
-* --- Event Handler Implementation (before controller) ---
-CLASS lcl_salv_event_handler IMPLEMENTATION.
-
-  METHOD constructor.
-    super->constructor( ).
-    mo_controller = io_controller.
-    mo_tree = io_tree.
-  ENDMETHOD.
-
-  METHOD on_context_menu.
-    " e_object is the CL_CTMENU reference
-    " Try to get the selected node to determine context
-    DATA: lo_selected TYPE REF TO cl_salv_node,
-          ls_ninfo    TYPE lty_node_info.
-
-    TRY.
-        lo_selected = mo_tree->get_nodes( )->get_selected_node( ).
-        IF lo_selected IS BOUND.
-          DATA(lv_key) = lo_selected->get_key( ).
-          READ TABLE mo_controller->mt_node_info INTO ls_ninfo
-            WITH KEY node_key = CONV lvc_nkey( lv_key ).
-        ENDIF.
-      CATCH cx_root.
-        CLEAR ls_ninfo.
-    ENDTRY.
-
-    " Level 4 leaf (object) → full menu
-    IF ls_ninfo-level = '4'.
-      e_object->add_function(
-        fcode = 'VIEW_DETAIL'
-        text  = 'View Details'
-        icon  = CONV string( '@2Q@' )
-      ).
-      e_object->add_function(
-        fcode = 'OPEN_SE80'
-        text  = 'Open in SE80'
-        icon  = CONV string( '@0Q@' )
-      ).
-      e_object->add_separator( ).
-      e_object->add_function(
-        fcode = 'CHG_OWNER_CTX'
-        text  = 'Change Owner'
-        icon  = CONV string( '@IO@' )
-      ).
-      e_object->add_function(
-        fcode = 'CHG_PKG_CTX'
-        text  = 'Change Package'
-        icon  = CONV string( '@BW@' )
-      ).
-    ELSE.
-      " Parent node → limited menu
-      e_object->add_function(
-        fcode = 'REFRESH'
-        text  = 'Refresh Tree'
-        icon  = CONV string( '@3I@' )
-      ).
-    ENDIF.
-  ENDMETHOD.
-
-ENDCLASS.
-
 CLASS lcl_pkg_controller IMPLEMENTATION.
 
   METHOD initialize.
     mo_reader  = zcl_scort_factory=>get_reader( ).
     mo_mutator = zcl_scort_factory=>get_mutator( ).
   ENDMETHOD.
-
   METHOD run.
     fetch_data( ).
     IF mt_objects IS INITIAL.
@@ -473,16 +381,7 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     lo_evt = mo_tree->get_event( ).
     SET HANDLER me->on_double_click         FOR lo_evt.
     SET HANDLER me->on_checkbox_change      FOR lo_evt.
-    SET HANDLER me->on_toolbar_button_click FOR lo_evt.
     SET HANDLER me->on_added_function       FOR lo_evt.
-
-    " Context menu: downcast events to subclass (exposes protected CONTEXT_MENU)
-    CREATE OBJECT mo_evt_handler
-      EXPORTING
-        io_controller = me
-        io_tree        = mo_tree.
-
-    SET HANDLER mo_evt_handler->on_context_menu FOR mo_evt_handler.
 
     mo_tree->display( ).
   ENDMETHOD.
@@ -542,17 +441,9 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD on_toolbar_button_click.
+  METHOD on_added_function.
     DATA: ls_node TYPE lty_node_map,
           ls_obj  TYPE zscort_s_object.
-
-    " Map node_key to object
-    READ TABLE mt_node_keys INTO ls_node
-      WITH KEY node_key = CONV lvc_nkey( node_key ).
-    IF sy-subrc = 0.
-      READ TABLE mt_objects INTO ls_obj
-        WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
-    ENDIF.
 
     CASE e_salv_function.
 
@@ -560,35 +451,54 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
         LEAVE TO TRANSACTION sy-tcode.
 
       WHEN 'VIEW_DETAIL'.
-        IF ls_obj IS NOT INITIAL.
-          show_detail_popup( ls_obj ).
-        ENDIF.
-
-      WHEN 'OPEN_SE80'.
-        IF ls_obj IS NOT INITIAL.
-          CALL FUNCTION 'RS_TOOL_ACCESS'
-            EXPORTING operation   = 'SHOW'
-                      object_name = ls_obj-obj_name
-                      object_type = ls_obj-object
-                      devclass    = ls_obj-devclass
-            EXCEPTIONS not_executed = 1 OTHERS = 2.
-          IF sy-subrc <> 0.
-            CALL TRANSACTION 'SE80'.
+        READ TABLE mt_node_keys INTO ls_node INDEX 1.
+        IF sy-subrc = 0.
+          READ TABLE mt_objects INTO ls_obj
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF ls_obj IS NOT INITIAL.
+            show_detail_popup( ls_obj ).
           ENDIF.
         ENDIF.
 
-      WHEN 'CHG_OWNER_CTX' OR 'CHG_OWNER'.
-        IF ls_obj IS NOT INITIAL.
-          do_change_owner_single( ls_obj ).
+      WHEN 'OPEN_SE80'.
+        READ TABLE mt_node_keys INTO ls_node INDEX 1.
+        IF sy-subrc = 0.
+          READ TABLE mt_objects INTO ls_obj
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF ls_obj IS NOT INITIAL.
+            CALL FUNCTION 'RS_TOOL_ACCESS'
+              EXPORTING operation   = 'SHOW'
+                        object_name = ls_obj-obj_name
+                        object_type = ls_obj-object
+                        devclass    = ls_obj-devclass
+              EXCEPTIONS not_executed = 1 OTHERS = 2.
+            IF sy-subrc <> 0.
+              CALL TRANSACTION 'SE80'.
+            ENDIF.
+          ENDIF.
         ENDIF.
 
-      WHEN 'CHG_PKG_CTX' OR 'CHG_PKG'.
-        IF ls_obj IS NOT INITIAL.
-          do_change_package_single( ls_obj ).
+      WHEN 'CHG_OWNER' OR 'CHG_OWNER_CTX'.
+        READ TABLE mt_node_keys INTO ls_node INDEX 1.
+        IF sy-subrc = 0.
+          READ TABLE mt_objects INTO ls_obj
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF ls_obj IS NOT INITIAL.
+            do_change_owner_single( ls_obj ).
+          ENDIF.
+        ENDIF.
+
+      WHEN 'CHG_PKG' OR 'CHG_PKG_CTX'.
+        READ TABLE mt_node_keys INTO ls_node INDEX 1.
+        IF sy-subrc = 0.
+          READ TABLE mt_objects INTO ls_obj
+            WITH KEY obj_name = ls_node-obj_name object = ls_node-obj_type.
+          IF ls_obj IS NOT INITIAL.
+            do_change_package_single( ls_obj ).
+          ENDIF.
         ENDIF.
 
       WHEN OTHERS.
-        " Fallback: use checked objects for mass operations
         IF mt_checked IS NOT INITIAL.
           READ TABLE mt_checked INTO DATA(ls_first) INDEX 1.
           READ TABLE mt_objects INTO ls_obj
@@ -610,17 +520,9 @@ CLASS lcl_pkg_controller IMPLEMENTATION.
               ENDIF.
           ENDCASE.
         ELSE.
-          MESSAGE 'Please check an object first.' TYPE 'S' DISPLAY LIKE 'W'.
+          MESSAGE 'Please select an object first.' TYPE 'S' DISPLAY LIKE 'W'.
         ENDIF.
 
-    ENDCASE.
-  ENDMETHOD.
-
-  METHOD on_added_function.
-    " Toolbar buttons triggered via function key or menu
-    CASE e_salv_function.
-      WHEN 'REFRESH'.
-        LEAVE TO TRANSACTION sy-tcode.
     ENDCASE.
   ENDMETHOD.
 

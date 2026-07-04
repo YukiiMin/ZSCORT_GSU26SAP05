@@ -15,13 +15,13 @@ public section.
 
   class-methods GET_CONSTANTS
     returning
-      VALUE(RO_CONST) type ref to ZIF_SCORT_CONSTANTS.
+      VALUE(RO_CONST) type ref to ZCL_SCORT_CONSTANTS.
 
 protected section.
 private section.
   class-data GO_READER type ref to ZIF_SCORT_REPO_READER.
   class-data GO_MUTATOR type ref to ZIF_SCORT_REPO_MUTATOR.
-  class-data GO_CONSTANTS type ref to ZIF_SCORT_CONSTANTS.
+  class-data GO_CONSTANTS type ref to ZCL_SCORT_CONSTANTS.
 endclass.
 
 

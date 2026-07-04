@@ -1,4 +1,4 @@
-class ZCL_SCORT_REPOSITORY_032 definition
+﻿class ZCL_SCORT_REPOSITORY_032 definition
   public
   final
   create public .
@@ -99,12 +99,20 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
 
+    DATA(lt_type_range) = VALUE tt_type_range(
+      FOR ls_type IN lt_valid_types (
+        sign   = 'I'
+        option = 'EQ'
+        low    = ls_type-object
+      )
+    ).
+
     SELECT obj_name, object, devclass, author, srcsystem, versid
       FROM tadir
       INTO TABLE @DATA(lt_tadir)
       WHERE obj_name IN @it_obj_name
         AND object   IN @it_obj_type
-        AND object   IN @lt_valid_types
+        AND object   IN @lt_type_range
         AND devclass IN @it_devclass
         AND author   IN @it_author.
 
@@ -215,13 +223,19 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
 
-    " Aggregate query — INTO CORRESPONDING không hỗ trợ GROUP BY
-    " → dùng inline @DATA rồi map thủ công
+    DATA(lt_type_range) = VALUE tt_type_range(
+      FOR ls_type IN lt_valid_types (
+        sign   = 'I'
+        option = 'EQ'
+        low    = ls_type-object
+      )
+    ).
+
     SELECT object,
            COUNT(*) AS obj_count
       FROM tadir
       INTO TABLE @DATA(lt_stat)
-      WHERE object   IN @lt_valid_types
+      WHERE object   IN @lt_type_range
         AND devclass IN @it_devclass
         AND author   IN @it_author
       GROUP BY object
@@ -349,9 +363,17 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
 
-    DATA(lt_final_types) = COND #(
-      WHEN it_obj_type IS INITIAL THEN lt_valid_types
-      ELSE it_obj_type
+    DATA(lt_type_range) = VALUE tt_type_range(
+      FOR ls_type IN lt_valid_types (
+        sign   = 'I'
+        option = 'EQ'
+        low    = ls_type-object
+      )
+    ).
+
+    DATA(lt_final_types) = COND tt_type_range(
+      WHEN it_obj_type IS NOT INITIAL THEN it_obj_type
+      ELSE lt_type_range
     ).
 
     " ⚠️ Khai báo explicit structure vì inline @DATA với JOIN + AS alias không work
@@ -425,11 +447,19 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 
     DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
 
+    DATA(lt_type_range) = VALUE tt_type_range(
+      FOR ls_type IN lt_valid_types (
+        sign   = 'I'
+        option = 'EQ'
+        low    = ls_type-object
+      )
+    ).
+
     SELECT obj_name, object, devclass, author, srcsystem, versid
       FROM tadir
       INTO TABLE @DATA(lt_tadir)
       WHERE devclass = @iv_devclass
-        AND object   IN @lt_valid_types
+        AND object   IN @lt_type_range
       ORDER BY object, obj_name.
 
     IF sy-subrc = 0.
@@ -455,13 +485,21 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
 *--------------------------------------------------------------------*
     CLEAR et_objects.
 
-    " Fallback: empty type range = match all valid types
-    DATA(lt_final_types) = COND #(
-      WHEN it_obj_type IS INITIAL THEN zcl_scort_constants=>get_valid_types( )
-      ELSE it_obj_type
+    DATA(lt_valid_types) = zcl_scort_constants=>get_valid_types( ).
+
+    DATA(lt_type_range) = VALUE tt_type_range(
+      FOR ls_type IN lt_valid_types (
+        sign   = 'I'
+        option = 'EQ'
+        low    = ls_type-object
+      )
     ).
 
-    " Explicit struct + DATA to avoid duplicate inline @DATA() across IF/ELSE branches
+    DATA(lt_final_types) = COND tt_type_range(
+      WHEN it_obj_type IS NOT INITIAL THEN it_obj_type
+      ELSE lt_type_range
+    ).
+
     TYPES: BEGIN OF ty_tadir,
              obj_name  TYPE tadir-obj_name,
              object    TYPE tadir-object,
@@ -472,50 +510,31 @@ CLASS ZCL_SCORT_REPOSITORY_032 IMPLEMENTATION.
            END OF ty_tadir.
     DATA lt_tadir TYPE STANDARD TABLE OF ty_tadir.
 
-    " Package is optional: if no package is selected, fall back to owner filter.
-    " Do NOT force devclass filter when it_devclass is empty.
-    IF it_devclass IS NOT INITIAL.
-      IF it_author IS NOT INITIAL.
-        SELECT obj_name, object, devclass, author, srcsystem, versid
-          FROM tadir
-          INTO TABLE @lt_tadir
-          WHERE devclass IN @it_devclass
-            AND object   IN @lt_final_types
-            AND author   IN @it_author
-          ORDER BY object, obj_name.
-      ELSE.
-        SELECT obj_name, object, devclass, author, srcsystem, versid
-          FROM tadir
-          INTO TABLE @lt_tadir
-          WHERE devclass IN @it_devclass
-            AND object   IN @lt_final_types
-          ORDER BY object, obj_name.
-      ENDIF.
+    IF it_author IS NOT INITIAL.
+      SELECT obj_name, object, devclass, author, srcsystem, versid
+        FROM tadir
+        INTO TABLE @lt_tadir
+        WHERE devclass IN @it_devclass
+          AND object   IN @lt_final_types
+          AND author   IN @it_author
+        ORDER BY object, obj_name.
     ELSE.
-      IF it_author IS NOT INITIAL.
-        SELECT obj_name, object, devclass, author, srcsystem, versid
-          FROM tadir
-          INTO TABLE @lt_tadir
-          WHERE object   IN @lt_final_types
-            AND author   IN @it_author
-          ORDER BY object, obj_name.
-      ELSE.
-        SELECT obj_name, object, devclass, author, srcsystem, versid
-          FROM tadir
-          INTO TABLE @lt_tadir
-          WHERE object   IN @lt_final_types
-          ORDER BY object, obj_name.
-      ENDIF.
+      SELECT obj_name, object, devclass, author, srcsystem, versid
+        FROM tadir
+        INTO TABLE @lt_tadir
+        WHERE devclass IN @it_devclass
+          AND object   IN @lt_final_types
+        ORDER BY object, obj_name.
     ENDIF.
 
     IF sy-subrc = 0.
-      et_objects = VALUE #( FOR ls IN lt_tadir (
-        obj_name  = ls-obj_name
-        object    = ls-object
-        devclass  = ls-devclass
-        author    = ls-author
-        srcsystem = ls-srcsystem
-        versno    = ls-versid
+      et_objects = VALUE #( FOR ls_tadir IN lt_tadir (
+        obj_name  = ls_tadir-obj_name
+        object    = ls_tadir-object
+        devclass  = ls_tadir-devclass
+        author    = ls_tadir-author
+        srcsystem = ls_tadir-srcsystem
+        versno    = ls_tadir-versid
       ) ).
     ENDIF.
 
